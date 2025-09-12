@@ -1,0 +1,35 @@
+{
+  "name": "@workspace/db",
+  "version": "0.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "lint": "ultracite check",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "studio": "drizzle-kit studio",
+    "db:init": "tsx scripts/init-db.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "^0.36.0",
+    "drizzle-zod": "^0.5.1",
+    "pg": "^8.13.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.9",
+    "@types/pg": "^8.11.12",
+    "@workspace/typescript-config": "workspace:*",
+    "drizzle-kit": "^0.28.1",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.2"
+  },
+  "exports": {
+    "./connection": "./src/connection.js",
+    "./schema": "./src/schema/index.js",
+    "./migrations": "./src/migrations.js",
+    "./types": "./src/types.js"
+  }
+}

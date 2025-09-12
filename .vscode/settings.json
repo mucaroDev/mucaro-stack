@@ -43,5 +43,8 @@
     "statusBarItem.remoteBackground": "#83c0c1",
     "statusBarItem.remoteForeground": "#15202b"
   },
-  "peacock.color": "#83c0c1"
+  "peacock.color": "#83c0c1",
+  "cSpell.words": [
+    "ultracite"
+  ]
 }
