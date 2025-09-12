@@ -1,7 +1,7 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
-import { users } from "./schema/users.js";
+import { users } from "./schema/users";
 
 /**
  * Schema object for type inference

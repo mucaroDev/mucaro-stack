@@ -1,16 +1,14 @@
 /**
- * Database schema index
- * Import specific schemas directly from their respective files:
- *
- * @example
- * ```typescript
- * import { users } from '@workspace/db/schema/users';
- * ```
- *
- * This file exists for organizational purposes.
- * Avoid importing from this file to prevent barrel file issues.
+ * Database schema exports
+ * Centralized exports for all database schemas
  */
 
-// Schema files available:
-// - ./users.ts - User table schema
-// - Add your schema files here as you create them
+export {
+	insertUserSchema,
+	type NewUser,
+	selectUserSchema,
+	type UpdateUser,
+	type User,
+	updateUserSchema,
+	users,
+} from "./users";

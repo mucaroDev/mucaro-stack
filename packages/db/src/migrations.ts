@@ -1,6 +1,9 @@
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
-import type { Database } from "./connection.js";
-import { MigrationError } from "./types.js";
+import type { Database } from "./connection";
+import { MigrationError } from "./types";
 
 /**
  * Migration options
@@ -8,7 +11,7 @@ import { MigrationError } from "./types.js";
 export type MigrationOptions = {
 	/**
 	 * Path to migrations folder
-	 * @default './drizzle/migrations'
+	 * @default Automatically resolves to the db package's drizzle/migrations folder
 	 */
 	migrationsFolder?: string;
 	/**
@@ -39,12 +42,38 @@ export async function runMigrations(
 	database: Database,
 	options: MigrationOptions = {}
 ): Promise<void> {
-	const { migrationsFolder = "./drizzle/migrations", verbose = true } = options;
+	// Get the directory of this file and resolve path to migrations
+	// Since we're importing TS source files directly, this file is in src/migrations.ts
+	// We need to go up from src/ to package root, then to drizzle/migrations
+	const currentFile = fileURLToPath(import.meta.url);
+	const currentDir = dirname(currentFile);
+	// From src/ go up to package root, then to drizzle/migrations
+	const calculatedPath = join(currentDir, "..", "drizzle", "migrations");
+
+	// Fallback: Try to find the migrations folder by looking for it in common locations
+	let defaultMigrationsPath = calculatedPath;
+	if (!existsSync(calculatedPath)) {
+		// Try from the package root directly
+		const packageRoot = join(currentDir, "..");
+		const alternativePath = join(packageRoot, "drizzle", "migrations");
+		if (existsSync(alternativePath)) {
+			defaultMigrationsPath = alternativePath;
+		} else {
+			// Try absolute path based on known structure
+			const knownPath =
+				"/Users/mucaro/Development/Projects/mucaro-stack/packages/db/drizzle/migrations";
+			if (existsSync(knownPath)) {
+				defaultMigrationsPath = knownPath;
+			}
+		}
+	}
+	const { migrationsFolder = defaultMigrationsPath, verbose = true } = options;
 
 	try {
 		if (verbose) {
 			// biome-ignore lint/suspicious/noConsole: Logging is intentional for migrations
 			console.log("Starting database migrations...");
+			console.log("Migration folder path:", migrationsFolder);
 		}
 
 		await migrate(database, {

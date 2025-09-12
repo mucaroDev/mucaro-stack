@@ -27,9 +27,9 @@
     "typescript": "^5.9.2"
   },
   "exports": {
-    "./connection": "./src/connection.js",
-    "./schema": "./src/schema/index.js",
-    "./migrations": "./src/migrations.js",
-    "./types": "./src/types.js"
+    "./connection": "./src/connection.ts",
+    "./schema": "./src/schema/index.ts",
+    "./migrations": "./src/migrations.ts",
+    "./types": "./src/types.ts"
   }
 }
