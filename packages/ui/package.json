@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "format": "biome format --write ."
   },
   "dependencies": {
     "@radix-ui/react-slot": "^1.2.3",

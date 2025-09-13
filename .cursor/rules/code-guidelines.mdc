@@ -1,0 +1,958 @@
+---
+description: Mucaro Stack - Comprehensive Development Guidelines
+globs: "**/*.{ts,tsx,js,jsx,sql,json,md,mdx}"
+alwaysApply: true
+---
+
+# Mucaro Stack Development Guidelines
+
+A comprehensive guide for developing with Next.js, Better Auth, Drizzle ORM, PostgreSQL, Tailwind CSS, and Biome in a monorepo architecture.
+
+## Tech Stack Overview
+
+- **Frontend**: Next.js 15+ with App Router, React 19, Tailwind CSS 4
+- **Authentication**: Better Auth with email/password and session management
+- **Database**: PostgreSQL with Drizzle ORM and Drizzle Kit migrations
+- **Styling**: Tailwind CSS 4 with utility classes only
+- **Tooling**: Biome for formatting/linting, TypeScript, pnpm workspaces
+- **Monorepo**: Turborepo with workspace packages
+
+## Package Architecture
+
+### Workspace Packages
+
+```
+packages/
+├── auth/           # @workspace/auth - Better Auth integration
+├── db/            # @workspace/db - Database schema and connections  
+├── ui/            # @workspace/ui - Shared UI components
+└── typescript-config/ # @workspace/typescript-config - Shared TS configs
+```
+
+### Apps
+
+```
+apps/
+└── web/           # Next.js application
+```
+
+## Package Usage Guidelines
+
+### @workspace/auth
+
+**When to use**: For all authentication-related functionality
+
+**IMPORTANT**: Always reference `packages/auth/llms.txt` for Better Auth documentation and implementation patterns. This file contains comprehensive Better Auth documentation and should be consulted for:
+- Authentication flow patterns
+- API implementation examples
+- Client-side integration patterns
+- Advanced features and plugins
+- Troubleshooting and best practices
+
+```typescript
+// ✅ Server-side auth setup
+import { createBetterAuth } from "@workspace/auth/server";
+import { db } from "@workspace/db/connection";
+
+export const auth = createBetterAuth(db);
+
+// ✅ Client-side auth
+import { createBetterAuthClient } from "@workspace/auth/client";
+import { AuthProvider, SignInForm, Protected } from "@workspace/auth/components";
+import { useAuth, useSignIn } from "@workspace/auth/client";
+
+// ✅ API routes
+import { auth } from "@/lib/auth";
+
+export const { GET, POST } = auth.handler;
+
+// ❌ Don't implement auth from scratch
+// ❌ Don't use other auth libraries
+```
+
+### @workspace/db
+
+**When to use**: For all database operations and schema definitions
+
+```typescript
+// ✅ Database connections
+import { db } from "@workspace/db/connection";
+import { users, authUser, session } from "@workspace/db/schema";
+
+// ✅ Queries with Drizzle
+const user = await db.select().from(users).where(eq(users.id, userId));
+
+// ✅ Schema definitions
+import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
+
+// ❌ Don't create direct SQL connections
+// ❌ Don't bypass Drizzle ORM for queries
+// ❌ Don't define schemas outside of @workspace/db
+```
+
+### @workspace/ui
+
+**When to use**: For truly reusable UI components across applications
+
+**Component Decision Framework**:
+
+1. **ALWAYS check @workspace/ui first** before creating any new component
+2. **Use existing components** from @workspace/ui whenever possible
+3. **App-specific components** should stay in the app if they contain:
+   - Business logic specific to that app
+   - App-specific data fetching
+   - Highly customized behavior that won't be reused
+4. **Move to @workspace/ui** only if the component is:
+   - Truly reusable across multiple apps
+   - Contains no app-specific logic
+   - Follows the design system patterns
+   - Has generic, configurable props
+
+```typescript
+// ✅ Import shared components first
+import { Button } from "@workspace/ui/components/button";
+import "@workspace/ui/globals.css";
+
+// ✅ Use consistent design system
+<Button variant="primary" size="lg">Click me</Button>
+
+// ✅ App-specific component (stays in app)
+// components/user-dashboard.tsx - contains app-specific business logic
+export function UserDashboard({ userId }: { userId: string }) {
+  const { user } = useAuth(); // app-specific auth logic
+  const { data } = useSWR(`/api/users/${userId}`); // app-specific API
+  return <div>{/* app-specific UI */}</div>;
+}
+
+// ✅ Reusable component (should be in @workspace/ui)
+// @workspace/ui/components/card.tsx - generic and reusable
+export function Card({ children, variant, className }: CardProps) {
+  return <div className={cardVariants({ variant, className })}>{children}</div>;
+}
+
+// ❌ Don't duplicate existing UI components
+// ❌ Don't move app-specific logic to @workspace/ui
+// ❌ Don't create new components without checking @workspace/ui first
+```
+
+## Next.js Best Practices
+
+### App Router Structure
+
+```typescript
+// ✅ Use App Router conventions
+app/
+├── layout.tsx          # Root layout
+├── page.tsx           # Home page
+├── api/
+│   └── auth/
+│       └── [...all]/
+│           └── route.ts # Better Auth API routes
+├── (auth)/
+│   ├── sign-in/
+│   │   └── page.tsx
+│   └── sign-up/
+│       └── page.tsx
+└── dashboard/
+    ├── layout.tsx     # Nested layout
+    └── page.tsx
+```
+
+### Server Components & Client Components
+
+```typescript
+// ✅ Server Component (default)
+import { db } from "@workspace/db/connection";
+import { users } from "@workspace/db/schema";
+
+export default async function UsersPage() {
+  const usersList = await db.select().from(users);
+  return <UsersList users={usersList} />;
+}
+
+// ✅ Client Component (when needed)
+"use client";
+import { useAuth } from "@workspace/auth/client";
+import { useState } from "react";
+
+export function InteractiveComponent() {
+  const { user } = useAuth();
+  const [count, setCount] = useState(0);
+  // ... interactive logic
+}
+
+// ❌ Don't use "use client" unnecessarily
+// ❌ Don't fetch data in client components when server components can do it
+```
+
+### Data Fetching
+
+```typescript
+// ✅ Server-side data fetching
+export default async function Page() {
+  const data = await db.select().from(users);
+  return <div>{/* render data */}</div>;
+}
+
+// ✅ Client-side data fetching with SWR/React Query
+"use client";
+import useSWR from "swr";
+
+export function ClientDataComponent() {
+  const { data, error } = useSWR("/api/users", fetcher);
+  if (error) return <div>Error: {error.message}</div>;
+  if (!data) return <div>Loading...</div>;
+  return <div>{/* render data */}</div>;
+}
+
+// ❌ Don't use useEffect for data fetching when better alternatives exist
+// ❌ Don't mix server and client data fetching unnecessarily
+```
+
+## Better Auth Best Practices
+
+### Authentication Setup
+
+```typescript
+// ✅ Server configuration
+import { createBetterAuth } from "@workspace/auth/server";
+import { db } from "@workspace/db/connection";
+
+export const auth = createBetterAuth(db);
+
+// ✅ Client configuration
+import { createBetterAuthClient } from "@workspace/auth/client";
+
+export const authClient = createBetterAuthClient({
+  baseURL: process.env.NEXT_PUBLIC_AUTH_URL,
+});
+
+// ✅ Provider setup
+import { AuthProvider } from "@workspace/auth/components";
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>
+        <AuthProvider authClient={authClient}>
+          {children}
+        </AuthProvider>
+      </body>
+    </html>
+  );
+}
+```
+
+### Route Protection
+
+```typescript
+// ✅ Component-level protection
+import { Protected } from "@workspace/auth/components";
+
+export default function DashboardPage() {
+  return (
+    <Protected>
+      <h1>Dashboard</h1>
+      {/* protected content */}
+    </Protected>
+  );
+}
+
+// ✅ Hook-based protection
+import { useIsAuthenticated } from "@workspace/auth/components";
+
+export function ConditionalContent() {
+  const { isAuthenticated, isLoading } = useIsAuthenticated();
+  
+  if (isLoading) return <div>Loading...</div>;
+  if (!isAuthenticated) return <div>Please sign in</div>;
+  
+  return <div>Protected content</div>;
+}
+
+// ✅ Server-side protection
+import { auth } from "@/lib/auth";
+import { redirect } from "next/navigation";
+
+export default async function ProtectedPage() {
+  const session = await auth.api.getSession();
+  if (!session) redirect("/sign-in");
+  
+  return <div>Protected server content</div>;
+}
+```
+
+### Authentication Forms
+
+```typescript
+// ✅ Use provided components
+import { SignInForm, SignUpForm } from "@workspace/auth/components";
+
+export default function SignInPage() {
+  return (
+    <SignInForm
+      onSuccess={() => router.push("/dashboard")}
+      onError={(error) => toast.error(error.message)}
+      className="max-w-md mx-auto"
+    />
+  );
+}
+
+// ✅ Custom forms with hooks
+import { useSignIn } from "@workspace/auth/client";
+
+export function CustomSignInForm() {
+  const { signIn, isLoading, error } = useSignIn(authClient);
+  
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const { error } = await signIn(email, password);
+    if (!error) router.push("/dashboard");
+  };
+  
+  return (
+    <form onSubmit={handleSubmit}>
+      {/* form fields */}
+    </form>
+  );
+}
+```
+
+## Database & Drizzle Best Practices
+
+### Schema Design
+
+```typescript
+// ✅ Define schemas in @workspace/db/src/schema/
+import { pgTable, text, timestamp, boolean, varchar } from "drizzle-orm/pg-core";
+
+export const users = pgTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(),
+  name: text("name").notNull(),
+  emailVerified: boolean("email_verified").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at")
+    .defaultNow()
+    .$onUpdate(() => new Date())
+    .notNull(),
+});
+
+// ✅ Export types
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+```
+
+### Database Operations
+
+```typescript
+// ✅ Use Drizzle query builder
+import { db } from "@workspace/db/connection";
+import { users } from "@workspace/db/schema";
+import { eq, and, or, desc } from "drizzle-orm";
+
+// Select with conditions
+const user = await db
+  .select()
+  .from(users)
+  .where(eq(users.email, email))
+  .limit(1);
+
+// Insert with returning
+const [newUser] = await db
+  .insert(users)
+  .values({ email, name })
+  .returning();
+
+// Update with conditions
+await db
+  .update(users)
+  .set({ name: newName, updatedAt: new Date() })
+  .where(eq(users.id, userId));
+
+// Complex queries with joins
+const result = await db
+  .select({
+    user: users,
+    sessionCount: count(sessions.id),
+  })
+  .from(users)
+  .leftJoin(sessions, eq(users.id, sessions.userId))
+  .groupBy(users.id);
+
+// ❌ Don't write raw SQL unless absolutely necessary
+// ❌ Don't use string concatenation for queries
+```
+
+### Migrations
+
+```typescript
+// ✅ Generate migrations
+// pnpm --filter @workspace/db generate
+
+// ✅ Run migrations
+// pnpm --filter @workspace/db migrate
+
+// ✅ Migration files are auto-generated in drizzle/migrations/
+// ❌ Don't edit migration files manually
+// ❌ Don't skip the generation step
+```
+
+### Connection Management
+
+```typescript
+// ✅ Use singleton connection from @workspace/db
+import { db } from "@workspace/db/connection";
+
+// ✅ Connection pooling is handled automatically
+// ❌ Don't create multiple database connections
+// ❌ Don't manage connections manually
+```
+
+## Tailwind CSS Best Practices
+
+### Configuration
+
+```typescript
+// ✅ Use Tailwind CSS 4 configuration
+// tailwind.config.ts
+import type { Config } from "tailwindcss";
+
+export default {
+  content: [
+    "./src/**/*.{js,ts,jsx,tsx}",
+    "../packages/ui/src/**/*.{js,ts,jsx,tsx}",
+  ],
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          50: "#f0f9ff",
+          500: "#3b82f6",
+          900: "#1e3a8a",
+        },
+      },
+    },
+  },
+  plugins: [],
+} satisfies Config;
+```
+
+### Component Styling
+
+```typescript
+// ✅ Use Tailwind classes only
+export function Button({ variant = "primary", size = "md", children, ...props }) {
+  const baseClasses = "font-medium rounded-lg focus:outline-none focus:ring-2";
+  const variants = {
+    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
+    secondary: "bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500",
+  };
+  const sizes = {
+    sm: "px-3 py-1.5 text-sm",
+    md: "px-4 py-2 text-base",
+    lg: "px-6 py-3 text-lg",
+  };
+
+  return (
+    <button
+      className={`${baseClasses} ${variants[variant]} ${sizes[size]}`}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+// ✅ Use clsx/cn for conditional classes
+import { clsx } from "clsx";
+
+export function Card({ variant, isActive, className, children }) {
+  return (
+    <div
+      className={clsx(
+        "rounded-lg border p-4", // base styles
+        {
+          "border-blue-500 bg-blue-50": variant === "primary",
+          "border-gray-200 bg-white": variant === "secondary",
+          "ring-2 ring-blue-500": isActive,
+        },
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+// ❌ NEVER use CSS-in-JS libraries
+// ❌ Don't use styled-components, emotion, or similar
+// ❌ Don't use tailwind-variants or other CSS-in-JS solutions
+```
+
+### Responsive Design
+
+```typescript
+// ✅ Mobile-first responsive design
+<div className="
+  flex flex-col          /* Mobile: stack vertically */
+  md:flex-row           /* Tablet+: side by side */
+  lg:gap-8              /* Desktop: larger gap */
+  xl:max-w-6xl          /* Large screens: max width */
+">
+  <div className="w-full md:w-1/3 lg:w-1/4">Sidebar</div>
+  <div className="w-full md:w-2/3 lg:w-3/4">Content</div>
+</div>
+
+// ❌ Don't use desktop-first breakpoints
+// ❌ NEVER use CSS-in-JS or traditional CSS
+// ❌ Don't mix Tailwind with other styling solutions
+```
+
+## TypeScript Best Practices
+
+### Type Definitions
+
+```typescript
+// ✅ Use strict TypeScript configuration
+// tsconfig.json extends @workspace/typescript-config
+
+// ✅ Define proper types
+export type User = {
+  id: string;
+  email: string;
+  name: string;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+// ✅ Use utility types
+export type CreateUserData = Omit<User, "id" | "createdAt" | "updatedAt">;
+export type UpdateUserData = Partial<Pick<User, "name" | "email">>;
+
+// ✅ Generic types for reusability
+export type ApiResponse<T> = {
+  success: boolean;
+  data?: T;
+  error?: string;
+};
+
+// ❌ Don't use `any` type
+// ❌ Don't use `unknown` unless specifically needed
+```
+
+### Component Props
+
+```typescript
+// ✅ Define component prop types
+export type ButtonProps = {
+  variant?: "primary" | "secondary" | "danger";
+  size?: "sm" | "md" | "lg";
+  disabled?: boolean;
+  children: React.ReactNode;
+} & React.ButtonHTMLAttributes<HTMLButtonElement>;
+
+export function Button({ variant = "primary", size = "md", children, ...props }: ButtonProps) {
+  return <button {...props}>{children}</button>;
+}
+
+// ✅ Use React.forwardRef with proper types
+export const Input = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement>
+>(({ className, ...props }, ref) => {
+  return <input ref={ref} className={cn("base-input-styles", className)} {...props} />;
+});
+Input.displayName = "Input";
+```
+
+### API Types
+
+```typescript
+// ✅ Define API route types
+export type CreateUserRequest = {
+  email: string;
+  name: string;
+  password: string;
+};
+
+export type CreateUserResponse = ApiResponse<{
+  user: Omit<User, "password">;
+  session: Session;
+}>;
+
+// ✅ Type API routes
+import type { NextRequest } from "next/server";
+
+export async function POST(request: NextRequest) {
+  const body: CreateUserRequest = await request.json();
+  // ... handle request
+  return Response.json({ success: true, data: user } satisfies CreateUserResponse);
+}
+```
+
+## Error Handling Best Practices
+
+### Client-Side Error Handling
+
+```typescript
+// ✅ Comprehensive error handling with types
+export type Result<T, E = Error> = {
+  success: true;
+  data: T;
+} | {
+  success: false;
+  error: E;
+};
+
+export async function createUser(data: CreateUserData): Promise<Result<User>> {
+  try {
+    const response = await fetch("/api/users", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      return { success: false, error: new Error(error.message) };
+    }
+
+    const user = await response.json();
+    return { success: true, data: user };
+  } catch (error) {
+    return { 
+      success: false, 
+      error: error instanceof Error ? error : new Error("Unknown error") 
+    };
+  }
+}
+
+// ✅ Use error boundaries
+export function ErrorBoundary({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundaryComponent
+      fallback={<div>Something went wrong. Please try again.</div>}
+    >
+      {children}
+    </ErrorBoundaryComponent>
+  );
+}
+```
+
+### Server-Side Error Handling
+
+```typescript
+// ✅ API route error handling
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    
+    // Validate input
+    const validatedData = createUserSchema.parse(body);
+    
+    // Process request
+    const user = await db.insert(users).values(validatedData).returning();
+    
+    return Response.json({ success: true, data: user[0] });
+  } catch (error) {
+    console.error("Create user error:", error);
+    
+    if (error instanceof z.ZodError) {
+      return Response.json(
+        { success: false, error: "Invalid input data", details: error.errors },
+        { status: 400 }
+      );
+    }
+    
+    return Response.json(
+      { success: false, error: "Internal server error" },
+      { status: 500 }
+    );
+  }
+}
+```
+
+## Performance Best Practices
+
+### Next.js Optimization
+
+```typescript
+// ✅ Use Next.js Image component
+import Image from "next/image";
+
+<Image
+  src="/profile.jpg"
+  alt="Profile picture"
+  width={100}
+  height={100}
+  priority // for above-the-fold images
+/>
+
+// ✅ Dynamic imports for code splitting
+import dynamic from "next/dynamic";
+
+const DynamicComponent = dynamic(() => import("./heavy-component"), {
+  loading: () => <div>Loading...</div>,
+});
+
+// ✅ Use React.memo for expensive components
+export const ExpensiveComponent = React.memo(({ data }: { data: ComplexData }) => {
+  const processedData = useMemo(() => processData(data), [data]);
+  return <div>{/* render processed data */}</div>;
+});
+```
+
+### Database Optimization
+
+```typescript
+// ✅ Use indexes in schema
+export const users = pgTable("users", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  email: varchar("email", { length: 255 }).notNull().unique(), // Automatic index
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+}, (table) => ({
+  emailIdx: index("email_idx").on(table.email), // Explicit index
+  createdAtIdx: index("created_at_idx").on(table.createdAt),
+}));
+
+// ✅ Optimize queries
+// Use select specific fields
+const users = await db
+  .select({
+    id: users.id,
+    email: users.email,
+    name: users.name,
+  })
+  .from(users)
+  .limit(10);
+
+// Use pagination
+const users = await db
+  .select()
+  .from(users)
+  .offset(page * pageSize)
+  .limit(pageSize);
+```
+
+## Security Best Practices
+
+### Authentication Security
+
+```typescript
+// ✅ Environment variables
+// .env.local
+AUTH_SECRET=your-super-secret-key-here
+DATABASE_URL=postgresql://user:password@localhost:5432/database
+TRUSTED_ORIGINS=https://yourdomain.com
+
+// ✅ CSRF protection (handled by Better Auth)
+// ✅ Session security (handled by Better Auth)
+// ✅ Rate limiting (handled by Better Auth)
+
+// ❌ Don't hardcode secrets
+// ❌ Don't expose sensitive data in client-side code
+```
+
+### Input Validation
+
+```typescript
+// ✅ Use Zod for validation
+import { z } from "zod";
+
+export const createUserSchema = z.object({
+  email: z.string().email("Invalid email format"),
+  name: z.string().min(1, "Name is required").max(100, "Name too long"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain uppercase, lowercase, and number"),
+});
+
+// ✅ Validate on both client and server
+export async function POST(request: NextRequest) {
+  const body = await request.json();
+  const validatedData = createUserSchema.parse(body); // Throws on invalid data
+  // ... process validated data
+}
+```
+
+## Testing Best Practices
+
+### Unit Testing
+
+```typescript
+// ✅ Test utilities and hooks
+import { renderHook, act } from "@testing-library/react";
+import { useAuth } from "@workspace/auth/client";
+
+describe("useAuth", () => {
+  it("should return authentication state", async () => {
+    const { result } = renderHook(() => useAuth(mockAuthClient));
+    
+    expect(result.current.isLoading).toBe(true);
+    
+    await act(async () => {
+      // Wait for auth to resolve
+    });
+    
+    expect(result.current.isAuthenticated).toBe(false);
+  });
+});
+```
+
+### Integration Testing
+
+```typescript
+// ✅ Test API routes
+import { POST } from "@/app/api/users/route";
+
+describe("/api/users", () => {
+  it("should create a user", async () => {
+    const request = new Request("http://localhost:3000/api/users", {
+      method: "POST",
+      body: JSON.stringify({
+        email: "test@example.com",
+        name: "Test User",
+        password: "SecurePassword123",
+      }),
+    });
+
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.success).toBe(true);
+    expect(data.data.email).toBe("test@example.com");
+  });
+});
+```
+
+## Development Workflow
+
+### Commands
+
+```bash
+# Development
+pnpm dev                    # Start all apps in development
+pnpm build                  # Build all packages and apps
+pnpm lint                   # Lint all code
+pnpm format                 # Format all code with Biome
+pnpm type-check            # Type check all packages
+
+# Database
+pnpm --filter @workspace/db generate  # Generate migrations
+pnpm --filter @workspace/db migrate   # Run migrations
+pnpm --filter @workspace/db studio    # Open Drizzle Studio
+
+# Package-specific
+pnpm --filter @workspace/auth build   # Build auth package
+pnpm --filter web dev                 # Start web app only
+```
+
+### Git Workflow
+
+```bash
+# ✅ Commit message format
+feat(auth): add password reset functionality
+fix(db): resolve connection pool issue
+docs(readme): update installation instructions
+refactor(ui): simplify button component API
+
+# ✅ Branch naming
+feature/auth-password-reset
+fix/db-connection-pool
+refactor/ui-button-api
+```
+
+## Common Anti-Patterns to Avoid
+
+### ❌ Don't Do These
+
+```typescript
+// ❌ Don't bypass the auth package
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+// ❌ Don't create direct database connections
+import { Pool } from "pg";
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// ❌ Don't use inline styles instead of Tailwind
+<div style={{ padding: "16px", backgroundColor: "#f3f4f6" }}>
+
+// ❌ NEVER use CSS-in-JS libraries
+import styled from "styled-components";
+import { css } from "@emotion/react";
+import { tv } from "tailwind-variants";
+
+const StyledButton = styled.button`
+  padding: 16px;
+  background-color: blue;
+`;
+
+// ❌ Don't use traditional CSS files
+import "./component.css";
+import styles from "./component.module.css";
+
+// ❌ Don't ignore TypeScript errors
+// @ts-ignore
+const user = getData().user.profile.name;
+
+// ❌ Don't use any type
+function processData(data: any): any {
+  return data.whatever;
+}
+
+// ❌ Don't mix authentication methods
+import NextAuth from "next-auth";
+import { auth } from "@workspace/auth/server"; // Pick one!
+
+// ❌ Don't create duplicate UI components
+// If @workspace/ui has Button, don't create another Button
+```
+
+### ✅ Do These Instead
+
+```typescript
+// ✅ Use the auth package
+import { useAuth, SignInForm } from "@workspace/auth/components";
+import { createBetterAuth } from "@workspace/auth/server";
+
+// ✅ Use the database package
+import { db } from "@workspace/db/connection";
+import { users } from "@workspace/db/schema";
+
+// ✅ Use Tailwind classes only
+<div className="p-4 bg-gray-100">
+
+// ✅ Use clsx for conditional classes
+<div className={clsx("p-4", isActive && "bg-blue-100", className)}>
+
+// ✅ Handle TypeScript errors properly
+const user = getData()?.user?.profile?.name ?? "Unknown";
+
+// ✅ Use proper types
+function processData(data: UserData): ProcessedData {
+  return { name: data.name, email: data.email };
+}
+```
+
+## Summary Checklist
+
+Before submitting code, ensure:
+
+- [ ] Uses appropriate workspace packages (@workspace/auth, @workspace/db, @workspace/ui)
+- [ ] Follows Next.js App Router conventions
+- [ ] Uses Better Auth for authentication (references @llms.txt)
+- [ ] Uses Drizzle ORM for database operations
+- [ ] Uses Tailwind CSS classes ONLY (no CSS-in-JS, no traditional CSS)
+- [ ] Checks @workspace/ui before creating new components
+- [ ] Has proper TypeScript types
+- [ ] Includes error handling
+- [ ] Follows security best practices
+- [ ] Is properly tested
+- [ ] Passes Biome linting and formatting
+- [ ] Uses semantic commit messages
+
+Remember: Always prefer using the workspace packages over implementing functionality from scratch. They provide tested, consistent APIs that integrate well with the overall architecture.

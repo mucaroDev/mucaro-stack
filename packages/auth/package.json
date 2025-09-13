@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "ultracite check",
+    "format": "biome format --write .",
     "generate": "better-auth generate",
     "check-types": "tsc --noEmit"
   },

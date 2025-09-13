@@ -1,200 +1,316 @@
-import { useSession } from "better-auth/react";
-import { useCallback } from "react";
-import type { AuthClient } from "./index.js";
-
 /**
- * Enhanced auth hooks for better developer experience
+ * React hooks for Better Auth
+ * Provides React hooks for authentication state and actions
  */
 
+"use client";
+
+import { useEffect, useState } from "react";
+import type { AuthClient } from "./index";
+
+// Basic auth types
+export type User = {
+	id: string;
+	name: string;
+	email: string;
+	emailVerified: boolean;
+	image?: string | null;
+	createdAt: Date;
+	updatedAt: Date;
+};
+
+export type Session = {
+	id: string;
+	userId: string;
+	expiresAt: Date;
+	token: string;
+	createdAt: Date;
+	updatedAt: Date;
+	ipAddress?: string | null;
+	userAgent?: string | null;
+	user: User;
+};
+
 /**
- * Hook to get authentication status and user data
- *
- * @returns Object with session data and loading state
- *
- * @example
- * ```typescript
- * function UserProfile() {
- *   const { data: session, isPending, error } = useAuth();
- *
- *   if (isPending) return <div>Loading...</div>;
- *   if (error) return <div>Error: {error.message}</div>;
- *   if (!session) return <div>Not authenticated</div>;
- *
- *   return <div>Welcome, {session.user.name}!</div>;
- * }
- * ```
+ * Authentication state interface
  */
-export function useAuth() {
-	return useSession();
+export type AuthState = {
+	user: User | null;
+	session: Session | null;
+	isLoading: boolean;
+	isAuthenticated: boolean;
+	error: Error | null;
 }
 
 /**
- * Hook to get the current user, or null if not authenticated
- *
- * @returns Current user or null
- *
- * @example
- * ```typescript
- * function UserAvatar() {
- *   const user = useUser();
- *
- *   if (!user) return null;
- *
- *   return (
- *     <img
- *       src={user.image || '/default-avatar.png'}
- *       alt={user.name}
- *     />
- *   );
- * }
- * ```
+ * Hook to get authentication state
  */
-export function useUser() {
-	const { data: session } = useSession();
-	return session?.user ?? null;
-}
+export function useAuth(authClient: AuthClient): AuthState {
+	const [state, setState] = useState<AuthState>({
+		user: null,
+		session: null,
+		isLoading: true,
+		isAuthenticated: false,
+		error: null,
+	});
 
-/**
- * Hook to check if user is authenticated
- *
- * @returns Boolean indicating authentication status
- *
- * @example
- * ```typescript
- * function ProtectedContent() {
- *   const isAuthenticated = useIsAuthenticated();
- *
- *   if (!isAuthenticated) {
- *     return <SignInForm />;
- *   }
- *
- *   return <SecretContent />;
- * }
- * ```
- */
-export function useIsAuthenticated(): boolean {
-	const { data: session } = useSession();
-	return !!session?.user;
-}
+	useEffect(() => {
+		let mounted = true;
 
-/**
- * Hook for authentication actions
- *
- * @param authClient - The auth client instance
- * @returns Object with authentication action functions
- *
- * @example
- * ```typescript
- * function AuthButtons() {
- *   const { signIn, signUp, signOut, isLoading } = useAuthActions(authClient);
- *
- *   return (
- *     <div>
- *       <button
- *         onClick={() => signIn({ email: 'user@example.com', password: 'password' })}
- *         disabled={isLoading}
- *       >
- *         Sign In
- *       </button>
- *       <button
- *         onClick={() => signOut()}
- *         disabled={isLoading}
- *       >
- *         Sign Out
- *       </button>
- *     </div>
- *   );
- * }
- * ```
- */
-export function useAuthActions(authClient: AuthClient) {
-	const { data: session } = useSession();
-
-	const signIn = useCallback(
-		async (credentials: {
-			email: string;
-			password: string;
-			rememberMe?: boolean;
-		}) => {
+		// Get initial session
+		const getSession = async () => {
 			try {
-				const result = await authClient.signIn.email(credentials);
-				if (result.error) {
-					throw new Error(result.error.message);
-				}
-				return result;
-			} catch (error) {
-				throw error instanceof Error ? error : new Error("Sign in failed");
-			}
-		},
-		[authClient]
-	);
+				const { data: sessionData, error: sessionError } = await authClient.getSession();
 
-	const signUp = useCallback(
-		async (userData: {
-			name: string;
-			email: string;
-			password: string;
-			image?: string;
-		}) => {
-			try {
-				const result = await authClient.signUp.email(userData);
-				if (result.error) {
-					throw new Error(result.error.message);
+				if (!mounted) {
+					return;
 				}
-				return result;
-			} catch (error) {
-				throw error instanceof Error ? error : new Error("Sign up failed");
-			}
-		},
-		[authClient]
-	);
 
-	const signOut = useCallback(async () => {
-		try {
-			await authClient.signOut();
-		} catch (error) {
-			throw error instanceof Error ? error : new Error("Sign out failed");
-		}
+				if (sessionError) {
+					setState({
+						user: null,
+						session: null,
+						isLoading: false,
+						isAuthenticated: false,
+						error: new Error(sessionError.message),
+					});
+					return;
+				}
+
+				setState({
+					user: sessionData?.user || null,
+					session: sessionData ? {
+						id: sessionData.session?.id || "",
+						userId: sessionData.user?.id || "",
+						expiresAt: new Date(),
+						token: "",
+						createdAt: new Date(),
+						updatedAt: new Date(),
+						ipAddress: null,
+						userAgent: null,
+						user: sessionData.user,
+					} : null,
+					isLoading: false,
+					isAuthenticated: !!sessionData?.user,
+					error: null,
+				});
+			} catch (authError) {
+				if (!mounted) {
+					return;
+				}
+
+				setState({
+					user: null,
+					session: null,
+					isLoading: false,
+					isAuthenticated: false,
+					error: authError instanceof Error ? authError : new Error("Unknown error"),
+				});
+			}
+		};
+
+		getSession();
+
+		return () => {
+			mounted = false;
+		};
 	}, [authClient]);
 
-	const updateUser = useCallback(
-		async (updates: { name?: string; image?: string }) => {
-			try {
-				const result = await authClient.updateUser(updates);
-				if (result.error) {
-					throw new Error(result.error.message);
-				}
-				return result;
-			} catch (error) {
-				throw error instanceof Error ? error : new Error("Update user failed");
-			}
-		},
-		[authClient]
-	);
+	return state;
+}
 
-	const changePassword = useCallback(
-		async (passwords: { currentPassword: string; newPassword: string }) => {
-			try {
-				const result = await authClient.changePassword(passwords);
-				if (result.error) {
-					throw new Error(result.error.message);
-				}
-				return result;
-			} catch (error) {
-				throw error instanceof Error
-					? error
-					: new Error("Change password failed");
+/**
+ * Hook return types
+ */
+export type UseSignInReturn = {
+	signIn: (email: string, password: string, options?: {
+		callbackURL?: string;
+		rememberMe?: boolean;
+	}) => Promise<{ data: unknown; error: Error | null }>;
+	isLoading: boolean;
+	error: Error | null;
+};
+
+export type UseSignUpReturn = {
+	signUp: (data: {
+		email: string;
+		password: string;
+		name: string;
+		image?: string;
+		callbackURL?: string;
+	}) => Promise<{ data: unknown; error: Error | null }>;
+	isLoading: boolean;
+	error: Error | null;
+};
+
+export type UseSignOutReturn = {
+	signOut: () => Promise<{ error: Error | null }>;
+	isLoading: boolean;
+	error: Error | null;
+};
+
+export type UseUpdateUserReturn = {
+	updateUser: (data: {
+		name?: string;
+		image?: string;
+	}) => Promise<{ data: unknown; error: Error | null }>;
+	isLoading: boolean;
+	error: Error | null;
+};
+
+/**
+ * Hook for sign in functionality
+ */
+export function useSignIn(authClient: AuthClient) {
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<Error | null>(null);
+
+	const signIn = async (email: string, password: string, options?: {
+		callbackURL?: string;
+		rememberMe?: boolean;
+	}) => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			const { data, error: authError } = await authClient.signIn.email({
+				email,
+				password,
+				callbackURL: options?.callbackURL,
+				rememberMe: options?.rememberMe,
+			});
+
+			if (authError) {
+				throw new Error(authError.message);
 			}
-		},
-		[authClient]
-	);
+
+			return { data, error: null };
+		} catch (error) {
+			const errorObj = error instanceof Error ? error : new Error("Sign in failed");
+			setError(errorObj);
+			return { data: null, error: errorObj };
+		} finally {
+			setIsLoading(false);
+		}
+	};
 
 	return {
 		signIn,
+		isLoading,
+		error,
+	};
+}
+
+/**
+ * Hook for sign up functionality
+ */
+export function useSignUp(authClient: AuthClient) {
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<Error | null>(null);
+
+	const signUp = async (data: {
+		email: string;
+		password: string;
+		name: string;
+		image?: string;
+		callbackURL?: string;
+	}) => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			const { data: result, error: authError } = await authClient.signUp.email(data);
+
+			if (authError) {
+				throw new Error(authError.message);
+			}
+
+			return { data: result, error: null };
+		} catch (error) {
+			const errorObj = error instanceof Error ? error : new Error("Sign up failed");
+			setError(errorObj);
+			return { data: null, error: errorObj };
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	return {
 		signUp,
+		isLoading,
+		error,
+	};
+}
+
+/**
+ * Hook for sign out functionality
+ */
+export function useSignOut(authClient: AuthClient) {
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<Error | null>(null);
+
+	const signOut = async () => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			const { error: authError } = await authClient.signOut();
+
+			if (authError) {
+				throw new Error(authError.message);
+			}
+
+			return { error: null };
+		} catch (error) {
+			const errorObj = error instanceof Error ? error : new Error("Sign out failed");
+			setError(errorObj);
+			return { error: errorObj };
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	return {
 		signOut,
+		isLoading,
+		error,
+	};
+}
+
+/**
+ * Hook for updating user profile
+ */
+export function useUpdateUser(authClient: AuthClient) {
+	const [isLoading, setIsLoading] = useState(false);
+	const [error, setError] = useState<Error | null>(null);
+
+	const updateUser = async (data: {
+		name?: string;
+		image?: string;
+	}) => {
+		setIsLoading(true);
+		setError(null);
+
+		try {
+			const { data: result, error: authError } = await authClient.updateUser(data);
+
+			if (authError) {
+				throw new Error(authError.message);
+			}
+
+			return { data: result, error: null };
+		} catch (error) {
+			const errorObj = error instanceof Error ? error : new Error("Update failed");
+			setError(errorObj);
+			return { data: null, error: errorObj };
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
+	return {
 		updateUser,
-		changePassword,
-		isAuthenticated: !!session?.user,
+		isLoading,
+		error,
 	};
 }

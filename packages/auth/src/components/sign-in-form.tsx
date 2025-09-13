@@ -1,198 +1,130 @@
-import { type FormEvent, useState } from "react";
-import { useAuthActions } from "../client/hooks.js";
-import type { AuthClient } from "../client/index.js";
+/**
+ * Sign In Form Component
+ * Provides a form for user authentication
+ */
+
+"use client";
+
+import { useState } from "react";
+import { useSignIn } from "../client/hooks";
+import { useAuthContext } from "./auth-provider";
 
 /**
- * Props for the SignInForm component
+ * Sign in form props
  */
 export type SignInFormProps = {
-	/**
-	 * Auth client instance
-	 */
-	authClient: AuthClient;
-
-	/**
-	 * Callback fired on successful sign in
-	 */
 	onSuccess?: () => void;
-
-	/**
-	 * Callback fired on sign in error
-	 */
 	onError?: (error: Error) => void;
-
-	/**
-	 * Custom class name for the form
-	 */
+	callbackURL?: string;
 	className?: string;
-
-	/**
-	 * Whether to show the "Remember me" checkbox
-	 * @default true
-	 */
-	showRememberMe?: boolean;
-
-	/**
-	 * Whether to show a link to the sign up form
-	 * @default true
-	 */
-	showSignUpLink?: boolean;
-
-	/**
-	 * Custom render function for the sign up link
-	 */
-	renderSignUpLink?: () => React.ReactNode;
-
-	/**
-	 * Whether the form is disabled
-	 * @default false
-	 */
-	disabled?: boolean;
-};
+}
 
 /**
- * Unstyled sign-in form component
- *
- * Provides a complete sign-in form with email/password authentication.
- * This component is unstyled, so you can apply your own CSS classes and styling.
- *
- * @param props - SignInForm props
- * @returns JSX element
- *
- * @example
- * ```typescript
- * import { SignInForm } from "@workspace/auth/components";
- * import { authClient } from "./lib/auth";
- *
- * function LoginPage() {
- *   return (
- *     <div className="login-container">
- *       <SignInForm
- *         authClient={authClient}
- *         className="login-form"
- *         onSuccess={() => router.push('/dashboard')}
- *         onError={(error) => toast.error(error.message)}
- *       />
- *     </div>
- *   );
- * }
- * ```
+ * Sign in form component
+ * Provides email/password authentication form
  */
 export function SignInForm({
-	authClient,
 	onSuccess,
 	onError,
+	callbackURL,
 	className,
-	showRememberMe = true,
-	showSignUpLink = true,
-	renderSignUpLink,
-	disabled = false,
 }: SignInFormProps) {
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [rememberMe, setRememberMe] = useState(false);
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { authClient } = useAuthContext();
+	const { signIn, isLoading, error } = useSignIn(authClient);
 
-	const { signIn } = useAuthActions(authClient);
+	const [formData, setFormData] = useState({
+		email: "",
+		password: "",
+		rememberMe: false,
+	});
 
-	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 
-		if (disabled || isLoading) {
-			return;
-		}
+		const { data, error: signInError } = await signIn(
+			formData.email,
+			formData.password,
+			{
+				callbackURL,
+				rememberMe: formData.rememberMe,
+			},
+		);
 
-		setIsLoading(true);
-		setError(null);
-
-		try {
-			await signIn({ email, password, rememberMe });
+		if (signInError) {
+			onError?.(signInError);
+		} else if (data) {
 			onSuccess?.();
-		} catch (err) {
-			const errorMessage =
-				err instanceof Error ? err.message : "Sign in failed";
-			setError(errorMessage);
-			onError?.(err instanceof Error ? err : new Error(errorMessage));
-		} finally {
-			setIsLoading(false);
 		}
 	};
 
+	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const { name, value, type, checked } = e.target;
+		setFormData(prev => ({
+			...prev,
+			[name]: type === "checkbox" ? checked : value,
+		}));
+	};
+
 	return (
-		<form className={className} noValidate onSubmit={handleSubmit}>
-			{error && (
-				<div data-testid="signin-error" role="alert">
-					{error}
-				</div>
-			)}
-
+		<form onSubmit={handleSubmit} className={className}>
 			<div>
-				<label htmlFor="signin-email">Email</label>
+				<label htmlFor="email">
+					Email
+				</label>
 				<input
-					autoComplete="email"
-					data-testid="signin-email-input"
-					disabled={disabled || isLoading}
-					id="signin-email"
-					onChange={(e) => setEmail(e.target.value)}
-					required
+					id="email"
+					name="email"
 					type="email"
-					value={email}
+					required
+					value={formData.email}
+					onChange={handleInputChange}
+					disabled={isLoading}
+					autoComplete="email"
 				/>
 			</div>
 
 			<div>
-				<label htmlFor="signin-password">Password</label>
+				<label htmlFor="password">
+					Password
+				</label>
 				<input
-					autoComplete="current-password"
-					data-testid="signin-password-input"
-					disabled={disabled || isLoading}
-					id="signin-password"
-					onChange={(e) => setPassword(e.target.value)}
-					required
+					id="password"
+					name="password"
 					type="password"
-					value={password}
+					required
+					value={formData.password}
+					onChange={handleInputChange}
+					disabled={isLoading}
+					autoComplete="current-password"
 				/>
 			</div>
 
-			{showRememberMe && (
-				<div>
-					<label htmlFor="signin-remember">
-						<input
-							checked={rememberMe}
-							data-testid="signin-remember-checkbox"
-							disabled={disabled || isLoading}
-							id="signin-remember"
-							onChange={(e) => setRememberMe(e.target.checked)}
-							type="checkbox"
-						/>
-						Remember me
-					</label>
+			<div>
+				<label htmlFor="rememberMe">
+					<input
+						id="rememberMe"
+						name="rememberMe"
+						type="checkbox"
+						checked={formData.rememberMe}
+						onChange={handleInputChange}
+						disabled={isLoading}
+					/>
+					Remember me
+				</label>
+			</div>
+
+			{error && (
+				<div role="alert">
+					{error.message}
 				</div>
 			)}
 
 			<button
-				data-testid="signin-submit-button"
-				disabled={disabled || isLoading || !email || !password}
 				type="submit"
+				disabled={isLoading}
 			>
 				{isLoading ? "Signing in..." : "Sign in"}
 			</button>
-
-			{showSignUpLink && (
-				<div>
-					{renderSignUpLink ? (
-						renderSignUpLink()
-					) : (
-						<p>
-							Don't have an account?{" "}
-							<a data-testid="signin-signup-link" href="/sign-up">
-								Sign up
-							</a>
-						</p>
-					)}
-				</div>
-			)}
 		</form>
 	);
 }

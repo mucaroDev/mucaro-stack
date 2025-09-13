@@ -1,179 +1,178 @@
-import type { Database } from "@workspace/db/types";
+/**
+ * Better Auth server configuration
+ * Provides authentication server instance with database integration
+ */
+
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
-import { authSchema } from "../schema/index.js";
+import { account, session, authUser as user, verification } from "@workspace/db/schema";
+
+// Constants
+const SECONDS_PER_MINUTE = 60;
+const MINUTES_PER_HOUR = 60;
+const HOURS_PER_DAY = 24;
+const DAYS_PER_WEEK = 7;
+const SEVEN_DAYS_IN_SECONDS = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY * DAYS_PER_WEEK;
+const ONE_DAY_IN_SECONDS = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
+const FIVE_MINUTES_IN_SECONDS = SECONDS_PER_MINUTE * 5;
+const ONE_MINUTE_IN_SECONDS = SECONDS_PER_MINUTE;
+const MAX_REQUESTS_PER_WINDOW = 100;
 
 /**
- * Configuration options for Better Auth server
+ * Better Auth server configuration
+ * Configured with email/password authentication and database integration
  */
-export type AuthServerConfig = {
+export const auth = betterAuth({
 	/**
-	 * Database instance from @workspace/db
+	 * Database configuration using Drizzle adapter
 	 */
-	database: Database;
+	database: drizzleAdapter(
+		// Database connection will be injected by the consuming app
+		{} as any,
+		{
+			provider: "pg",
+			schema: {
+				user,
+				session,
+				account,
+				verification,
+			},
+		},
+	),
 
 	/**
-	 * Base URL for the application
-	 * @default "http://localhost:3000"
+	 * Email and password authentication
 	 */
-	baseURL?: string;
-
-	/**
-	 * Secret key for signing tokens
-	 * Should be a long, random string in production
-	 */
-	secret?: string;
-
-	/**
-	 * Trusted origins for CORS
-	 * @default ["http://localhost:3000"]
-	 */
-	trustedOrigins?: string[];
+	emailAndPassword: {
+		enabled: true,
+		autoSignIn: true,
+		minPasswordLength: 8,
+		maxPasswordLength: 128,
+		requireEmailVerification: false, // Can be enabled based on requirements
+	},
 
 	/**
 	 * Session configuration
 	 */
-	session?: {
-		/**
-		 * Session expiration time in seconds
-		 * @default 7 days (604800 seconds)
-		 */
-		expiresIn?: number;
-
-		/**
-		 * Whether to update session expiration on activity
-		 * @default true
-		 */
-		updateAge?: boolean;
-	};
+	session: {
+		expiresIn: SEVEN_DAYS_IN_SECONDS, // 7 days
+		updateAge: ONE_DAY_IN_SECONDS, // 1 day
+		cookieCache: {
+			enabled: true,
+			maxAge: FIVE_MINUTES_IN_SECONDS, // 5 minutes
+		},
+	},
 
 	/**
-	 * Email verification settings
+	 * Security configuration
 	 */
-	emailVerification?: {
-		/**
-		 * Whether email verification is required
-		 * @default false
-		 */
-		required?: boolean;
-
-		/**
-		 * Auto sign in after email verification
-		 * @default true
-		 */
-		autoSignInAfterVerification?: boolean;
-	};
+	advanced: {
+		generateId: false, // Use database default ID generation
+		crossSubDomainCookies: {
+			enabled: false, // Enable if needed for subdomains
+		},
+	},
 
 	/**
-	 * Rate limiting configuration
+	 * CSRF protection
 	 */
-	rateLimit?: {
-		/**
-		 * Enable rate limiting
-		 * @default true
-		 */
-		enabled?: boolean;
+	csrf: {
+		enabled: true,
+		secret: process.env.AUTH_SECRET,
+	},
 
-		/**
-		 * Time window in seconds
-		 * @default 60
-		 */
-		window?: number;
+	/**
+	 * Rate limiting for authentication endpoints
+	 */
+	rateLimit: {
+		enabled: true,
+		window: ONE_MINUTE_IN_SECONDS, // 1 minute window
+		max: MAX_REQUESTS_PER_WINDOW, // 100 requests per window
+	},
 
-		/**
-		 * Maximum requests per window
-		 * @default 100
-		 */
-		max?: number;
-	};
-};
+	/**
+	 * Trusted origins for CORS
+	 */
+	trustedOrigins: [
+		"http://localhost:3000",
+		"https://localhost:3000",
+		...(process.env.TRUSTED_ORIGINS?.split(",") || []),
+	],
+
+	/**
+	 * Logger configuration
+	 */
+	logger: {
+		level: process.env.NODE_ENV === "development" ? "debug" : "warn",
+		disabled: process.env.NODE_ENV === "test",
+	},
+});
 
 /**
- * Create a Better Auth instance with proper configuration
- *
- * @param config - Auth server configuration
- * @returns Better Auth instance
- *
- * @example
- * ```typescript
- * import { createDatabase } from "@workspace/db/connection";
- * import { createAuthServer } from "@workspace/auth/server";
- *
- * const db = createDatabase({
- *   connectionString: process.env.DATABASE_URL
- * });
- *
- * export const auth = createAuthServer({
- *   database: db,
- *   baseURL: process.env.BETTER_AUTH_URL,
- *   secret: process.env.BETTER_AUTH_SECRET,
- *   trustedOrigins: [process.env.APP_URL],
- * });
- * ```
+ * Create Better Auth instance with custom database connection
+ * This allows apps to inject their own database connection
  */
-export function createAuthServer(config: AuthServerConfig) {
-	const {
-		database,
-		baseURL = "http://localhost:3000",
-		secret,
-		trustedOrigins = ["http://localhost:3000"],
-		session = {},
-		emailVerification = {},
-		rateLimit = {},
-	} = config;
-
-	if (!secret) {
-		throw new Error(
-			"BETTER_AUTH_SECRET is required. Please set this environment variable to a secure random string."
-		);
-	}
-
+export function createBetterAuth(db: any) {
 	return betterAuth({
-		database: drizzleAdapter(database, {
+		database: drizzleAdapter(db, {
 			provider: "pg",
-			schema: authSchema,
+			schema: {
+				user,
+				session,
+				account,
+				verification,
+			},
 		}),
-
-		baseURL,
-		secret,
-		trustedOrigins,
-
-		session: {
-			expiresIn: session.expiresIn ?? 604_800, // 7 days (60 * 60 * 24 * 7)
-			updateAge: session.updateAge ?? true,
-		},
 
 		emailAndPassword: {
 			enabled: true,
-			requireEmailVerification: emailVerification.required ?? false,
-			autoSignInAfterVerification:
-				emailVerification.autoSignInAfterVerification ?? true,
+			autoSignIn: true,
+			minPasswordLength: 8,
+			maxPasswordLength: 128,
+			requireEmailVerification: false,
 		},
 
-		rateLimit:
-			rateLimit.enabled !== false
-				? {
-						window: rateLimit.window ?? 60, // 1 minute
-						max: rateLimit.max ?? 100, // 100 requests per minute
-					}
-				: undefined,
+		session: {
+		expiresIn: SEVEN_DAYS_IN_SECONDS, // 7 days
+		updateAge: ONE_DAY_IN_SECONDS, // 1 day
+		cookieCache: {
+			enabled: true,
+			maxAge: FIVE_MINUTES_IN_SECONDS, // 5 minutes
+		},
+		},
 
-		// Enable advanced security features
 		advanced: {
+			generateId: false,
 			crossSubDomainCookies: {
-				enabled: false, // Set to true if using subdomains
+				enabled: false,
 			},
-			useSecureCookies: process.env.NODE_ENV === "production",
+		},
+
+		csrf: {
+			enabled: true,
+			secret: process.env.AUTH_SECRET,
+		},
+
+		rateLimit: {
+			enabled: true,
+		window: ONE_MINUTE_IN_SECONDS,
+		max: MAX_REQUESTS_PER_WINDOW,
+		},
+
+		trustedOrigins: [
+			"http://localhost:3000",
+			"https://localhost:3000",
+			...(process.env.TRUSTED_ORIGINS?.split(",") || []),
+		],
+
+		logger: {
+			level: process.env.NODE_ENV === "development" ? "debug" : "warn",
+			disabled: process.env.NODE_ENV === "test",
 		},
 	});
 }
 
 /**
- * Type for the auth instance
+ * Type exports for Better Auth
  */
-export type AuthServer = ReturnType<typeof createAuthServer>;
-
-/**
- * Re-export Better Auth types for convenience
- */
-export type { Session, User } from "better-auth/types";
+export type Auth = typeof auth;

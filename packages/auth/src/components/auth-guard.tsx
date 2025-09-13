@@ -1,162 +1,89 @@
+/**
+ * Auth Guard Component
+ * Protects routes by requiring authentication
+ */
+
+"use client";
+
 import type { ReactNode } from "react";
-import { useAuth, useIsAuthenticated } from "../client/hooks.js";
+import { useAuthContext } from "./auth-provider";
 
 /**
- * Props for the AuthGuard component
+ * Auth guard props
  */
 export type AuthGuardProps = {
-	/**
-	 * Content to render when user is authenticated
-	 */
 	children: ReactNode;
-
-	/**
-	 * Content to render when user is not authenticated
-	 */
 	fallback?: ReactNode;
-
-	/**
-	 * Content to render while authentication status is loading
-	 */
-	loading?: ReactNode;
-
-	/**
-	 * Whether to require email verification
-	 * @default false
-	 */
-	requireEmailVerification?: boolean;
-
-	/**
-	 * Content to render when email verification is required
-	 */
-	emailVerificationFallback?: ReactNode;
-
-	/**
-	 * Custom function to determine if user meets access requirements
-	 */
-	canAccess?: (user: unknown) => boolean;
-
-	/**
-	 * Content to render when custom access check fails
-	 */
-	accessDeniedFallback?: ReactNode;
-};
+	redirectTo?: string;
+	requireAuth?: boolean;
+}
 
 /**
- * Authentication guard component
- *
- * Conditionally renders content based on authentication status and requirements.
- * Useful for protecting routes or content that requires authentication.
- *
- * @param props - AuthGuard props
- * @returns JSX element
- *
- * @example
- * ```typescript
- * import { AuthGuard } from "@workspace/auth/components";
- *
- * function ProtectedPage() {
- *   return (
- *     <AuthGuard
- *       fallback={<SignInPrompt />}
- *       loading={<Spinner />}
- *     >
- *       <SecretContent />
- *     </AuthGuard>
- *   );
- * }
- *
- * // With email verification requirement
- * function VerifiedOnlyContent() {
- *   return (
- *     <AuthGuard
- *       requireEmailVerification
- *       emailVerificationFallback={<EmailVerificationPrompt />}
- *       fallback={<SignInForm />}
- *     >
- *       <PremiumFeatures />
- *     </AuthGuard>
- *   );
- * }
- *
- * // With custom access control
- * function AdminPanel() {
- *   return (
- *     <AuthGuard
- *       canAccess={(user) => user.role === 'admin'}
- *       accessDeniedFallback={<div>Admin access required</div>}
- *       fallback={<SignInForm />}
- *     >
- *       <AdminDashboard />
- *     </AuthGuard>
- *   );
- * }
- * ```
+ * Auth guard component
+ * Conditionally renders children based on authentication state
  */
 export function AuthGuard({
 	children,
-	fallback = null,
-	loading = null,
-	requireEmailVerification = false,
-	emailVerificationFallback = null,
-	canAccess,
-	accessDeniedFallback = null,
+	fallback,
+	redirectTo,
+	requireAuth = true,
 }: AuthGuardProps) {
-	const { data: session, isPending } = useAuth();
-	const isAuthenticated = useIsAuthenticated();
+	const { isAuthenticated, isLoading } = useAuthContext();
 
 	// Show loading state while checking authentication
-	if (isPending) {
-		return <>{loading}</>;
+	if (isLoading) {
+		return (
+			<div>
+				Loading...
+			</div>
+		);
 	}
 
-	// Not authenticated
-	if (!(isAuthenticated && session)) {
-		return <>{fallback}</>;
+	// Handle redirect if specified
+	if (requireAuth && !isAuthenticated && redirectTo) {
+		// In a real app, you'd use your router here
+		// For now, we'll just show the fallback
+		if (typeof window !== "undefined") {
+			window.location.href = redirectTo;
+		}
+		return null;
 	}
 
-	const user = session.user;
-
-	// Check email verification requirement
-	if (requireEmailVerification && !user.emailVerified) {
-		return <>{emailVerificationFallback || fallback}</>;
+	// Show fallback if not authenticated and auth is required
+	if (requireAuth && !isAuthenticated) {
+		return fallback || (
+			<div>
+				<p>Please sign in to access this content.</p>
+			</div>
+		);
 	}
 
-	// Check custom access requirements
-	if (canAccess && !canAccess(user)) {
-		return <>{accessDeniedFallback || fallback}</>;
+	// Show fallback if authenticated but auth is not required (inverse guard)
+	if (!requireAuth && isAuthenticated) {
+		return fallback || null;
 	}
 
-	// All checks passed, render protected content
 	return <>{children}</>;
 }
 
 /**
- * Higher-order component version of AuthGuard
- *
- * @param guardProps - Auth guard configuration
- * @returns Function that wraps a component with auth guard
- *
- * @example
- * ```typescript
- * import { withAuthGuard } from "@workspace/auth/components";
- *
- * const ProtectedComponent = withAuthGuard({
- *   fallback: <SignInForm />,
- *   requireEmailVerification: true,
- * })(MyComponent);
- * ```
+ * Protected component - requires authentication
  */
-export function withAuthGuard(guardProps: Omit<AuthGuardProps, "children">) {
-	return function WithAuthGuard<P extends object>(
-		Component: React.ComponentType<P>
-	) {
-		return function AuthGuardedComponent(props: P) {
-			return (
-				<AuthGuard {...guardProps}>
-					<Component {...props} />
-				</AuthGuard>
-			);
-		};
-	};
+export function Protected({ children, ...props }: Omit<AuthGuardProps, "requireAuth">) {
+	return (
+		<AuthGuard requireAuth={true} {...props}>
+			{children}
+		</AuthGuard>
+	);
+}
+
+/**
+ * Guest component - requires no authentication
+ */
+export function Guest({ children, ...props }: Omit<AuthGuardProps, "requireAuth">) {
+	return (
+		<AuthGuard requireAuth={false} {...props}>
+			{children}
+		</AuthGuard>
+	);
 }

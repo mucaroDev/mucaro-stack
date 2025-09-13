@@ -1,123 +1,64 @@
-import { type ButtonHTMLAttributes, useState } from "react";
-import { useAuthActions } from "../client/hooks.js";
-import type { AuthClient } from "../client/index.js";
-
 /**
- * Props for the SignOutButton component
+ * Sign Out Button Component
+ * Provides a button for user sign out
  */
-export type SignOutButtonProps = Omit<
-	ButtonHTMLAttributes<HTMLButtonElement>,
-	"onClick"
-> & {
-	/**
-	 * Auth client instance
-	 */
-	authClient: AuthClient;
 
-	/**
-	 * Callback fired on successful sign out
-	 */
-	onSuccess?: () => void;
+"use client";
 
-	/**
-	 * Callback fired on sign out error
-	 */
-	onError?: (error: Error) => void;
-
-	/**
-	 * Custom content to display when loading
-	 */
-	loadingContent?: React.ReactNode;
-
-	/**
-	 * Whether to show a confirmation dialog before signing out
-	 * @default false
-	 */
-	showConfirmation?: boolean;
-
-	/**
-	 * Custom confirmation message
-	 * @default "Are you sure you want to sign out?"
-	 */
-	confirmationMessage?: string;
-};
+import { useSignOut } from "../client/hooks";
+import { useAuthContext } from "./auth-provider";
 
 /**
- * Unstyled sign-out button component
- *
- * Provides a button that signs the user out when clicked.
- * This component is unstyled, so you can apply your own CSS classes and styling.
- *
- * @param props - SignOutButton props
- * @returns JSX element
- *
- * @example
- * ```typescript
- * import { SignOutButton } from "@workspace/auth/components";
- * import { authClient } from "./lib/auth";
- *
- * function UserMenu() {
- *   return (
- *     <div className="user-menu">
- *       <SignOutButton
- *         authClient={authClient}
- *         className="sign-out-btn"
- *         onSuccess={() => router.push('/login')}
- *         showConfirmation
- *       >
- *         Sign Out
- *       </SignOutButton>
- *     </div>
- *   );
- * }
- * ```
+ * Sign out button props
+ */
+export type SignOutButtonProps = {
+	onSuccess?: () => void;
+	onError?: (error: Error) => void;
+	children?: React.ReactNode;
+	className?: string;
+	disabled?: boolean;
+}
+
+/**
+ * Sign out button component
+ * Provides a button to sign out the current user
  */
 export function SignOutButton({
-	authClient,
 	onSuccess,
 	onError,
-	loadingContent,
-	showConfirmation = false,
-	confirmationMessage = "Are you sure you want to sign out?",
 	children = "Sign out",
+	className,
 	disabled,
-	...buttonProps
 }: SignOutButtonProps) {
-	const [isLoading, setIsLoading] = useState(false);
-	const { signOut } = useAuthActions(authClient);
+	const { authClient } = useAuthContext();
+	const { signOut, isLoading, error } = useSignOut(authClient);
 
 	const handleSignOut = async () => {
-		if (disabled || isLoading) {
-			return;
-		}
+		const { error: signOutError } = await signOut();
 
-		if (showConfirmation && !window.confirm(confirmationMessage)) {
-			return;
-		}
-
-		setIsLoading(true);
-
-		try {
-			await signOut();
+		if (signOutError) {
+			onError?.(signOutError);
+		} else {
 			onSuccess?.();
-		} catch (err) {
-			const errorMessage =
-				err instanceof Error ? err.message : "Sign out failed";
-			onError?.(err instanceof Error ? err : new Error(errorMessage));
-		} finally {
-			setIsLoading(false);
 		}
 	};
 
 	return (
-		<button
-			{...buttonProps}
-			data-testid="signout-button"
-			disabled={disabled || isLoading}
-			onClick={handleSignOut}
-			type="button"
-		>
-			{isLoading && loadingContent ? loadingContent : children}
-		</button>
+		<>
+			<button
+				type="button"
+				onClick={handleSignOut}
+				disabled={disabled || isLoading}
+				className={className}
+			>
+				{isLoading ? "Signing out..." : children}
+			</button>
+
+			{error && (
+				<div role="alert">
+					{error.message}
+				</div>
+			)}
+		</>
 	);
 }

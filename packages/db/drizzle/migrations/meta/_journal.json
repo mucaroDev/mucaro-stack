@@ -8,6 +8,13 @@
       "when": 1757655913799,
       "tag": "0000_lethal_secret_warriors",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1757660575470,
+      "tag": "0001_quick_stark_industries",
+      "breakpoints": true
     }
   ]
 }

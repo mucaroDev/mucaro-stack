@@ -1,260 +1,212 @@
-import { type FormEvent, useState } from "react";
-import { useAuthActions } from "../client/hooks.js";
-import type { AuthClient } from "../client/index.js";
+/**
+ * Sign Up Form Component
+ * Provides a form for user registration
+ */
+
+"use client";
+
+import { useState } from "react";
+import { useSignUp } from "../client/hooks";
+import { useAuthContext } from "./auth-provider";
+
+// Constants
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
 
 /**
- * Props for the SignUpForm component
+ * Sign up form props
  */
 export type SignUpFormProps = {
-	/**
-	 * Auth client instance
-	 */
-	authClient: AuthClient;
-
-	/**
-	 * Callback fired on successful sign up
-	 */
 	onSuccess?: () => void;
-
-	/**
-	 * Callback fired on sign up error
-	 */
 	onError?: (error: Error) => void;
-
-	/**
-	 * Custom class name for the form
-	 */
+	callbackURL?: string;
 	className?: string;
-
-	/**
-	 * Whether to show a link to the sign in form
-	 * @default true
-	 */
-	showSignInLink?: boolean;
-
-	/**
-	 * Custom render function for the sign in link
-	 */
-	renderSignInLink?: () => React.ReactNode;
-
-	/**
-	 * Whether the form is disabled
-	 * @default false
-	 */
-	disabled?: boolean;
-
-	/**
-	 * Minimum password length
-	 * @default 8
-	 */
-	minPasswordLength?: number;
-
-	/**
-	 * Whether to require password confirmation
-	 * @default true
-	 */
-	requirePasswordConfirmation?: boolean;
-};
+}
 
 /**
- * Unstyled sign-up form component
- *
- * Provides a complete sign-up form with email/password registration.
- * This component is unstyled, so you can apply your own CSS classes and styling.
- *
- * @param props - SignUpForm props
- * @returns JSX element
- *
- * @example
- * ```typescript
- * import { SignUpForm } from "@workspace/auth/components";
- * import { authClient } from "./lib/auth";
- *
- * function RegisterPage() {
- *   return (
- *     <div className="register-container">
- *       <SignUpForm
- *         authClient={authClient}
- *         className="register-form"
- *         onSuccess={() => router.push('/welcome')}
- *         onError={(error) => toast.error(error.message)}
- *       />
- *     </div>
- *   );
- * }
- * ```
+ * Sign up form component
+ * Provides user registration form
  */
 export function SignUpForm({
-	authClient,
 	onSuccess,
 	onError,
+	callbackURL,
 	className,
-	showSignInLink = true,
-	renderSignInLink,
-	disabled = false,
-	minPasswordLength = 8,
-	requirePasswordConfirmation = true,
 }: SignUpFormProps) {
-	const [name, setName] = useState("");
-	const [email, setEmail] = useState("");
-	const [password, setPassword] = useState("");
-	const [confirmPassword, setConfirmPassword] = useState("");
-	const [isLoading, setIsLoading] = useState(false);
-	const [error, setError] = useState<string | null>(null);
+	const { authClient } = useAuthContext();
+	const { signUp, isLoading, error } = useSignUp(authClient);
 
-	const { signUp } = useAuthActions(authClient);
+	const [formData, setFormData] = useState({
+		name: "",
+		email: "",
+		password: "",
+		confirmPassword: "",
+	});
+
+	const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
 	const validateForm = () => {
-		if (!name.trim()) {
-			setError("Name is required");
-			return false;
+		const errors: Record<string, string> = {};
+
+		if (!formData.name.trim()) {
+			errors.name = "Name is required";
 		}
 
-		if (!email.trim()) {
-			setError("Email is required");
-			return false;
+		if (!formData.email.trim()) {
+			errors.email = "Email is required";
+		} else if (!EMAIL_REGEX.test(formData.email)) {
+			errors.email = "Please enter a valid email address";
 		}
 
-		if (password.length < minPasswordLength) {
-			setError(`Password must be at least ${minPasswordLength} characters`);
-			return false;
+		if (!formData.password) {
+			errors.password = "Password is required";
+		} else if (formData.password.length < MIN_PASSWORD_LENGTH) {
+			errors.password = "Password must be at least 8 characters long";
 		}
 
-		if (requirePasswordConfirmation && password !== confirmPassword) {
-			setError("Passwords do not match");
-			return false;
+		if (formData.password !== formData.confirmPassword) {
+			errors.confirmPassword = "Passwords do not match";
 		}
 
-		return true;
+		setValidationErrors(errors);
+		return Object.keys(errors).length === 0;
 	};
 
-	const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
+	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
-
-		if (disabled || isLoading) {
-			return;
-		}
-
-		setError(null);
 
 		if (!validateForm()) {
 			return;
 		}
 
-		setIsLoading(true);
+		const { data, error: signUpError } = await signUp({
+			name: formData.name,
+			email: formData.email,
+			password: formData.password,
+			callbackURL,
+		});
 
-		try {
-			await signUp({ name: name.trim(), email: email.trim(), password });
+		if (signUpError) {
+			onError?.(signUpError);
+		} else if (data) {
 			onSuccess?.();
-		} catch (err) {
-			const errorMessage =
-				err instanceof Error ? err.message : "Sign up failed";
-			setError(errorMessage);
-			onError?.(err instanceof Error ? err : new Error(errorMessage));
-		} finally {
-			setIsLoading(false);
+		}
+	};
+
+	const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+		const { name, value } = e.target;
+		setFormData(prev => ({
+			...prev,
+			[name]: value,
+		}));
+
+		// Clear validation error when user starts typing
+		if (validationErrors[name]) {
+			setValidationErrors(prev => ({
+				...prev,
+				[name]: "",
+			}));
 		}
 	};
 
 	return (
-		<form className={className} noValidate onSubmit={handleSubmit}>
-			{error && (
-				<div data-testid="signup-error" role="alert">
-					{error}
-				</div>
-			)}
-
+		<form onSubmit={handleSubmit} className={className}>
 			<div>
-				<label htmlFor="signup-name">Name</label>
+				<label htmlFor="name">
+					Name
+				</label>
 				<input
-					autoComplete="name"
-					data-testid="signup-name-input"
-					disabled={disabled || isLoading}
-					id="signup-name"
-					onChange={(e) => setName(e.target.value)}
-					required
+					id="name"
+					name="name"
 					type="text"
-					value={name}
-				/>
-			</div>
-
-			<div>
-				<label htmlFor="signup-email">Email</label>
-				<input
-					autoComplete="email"
-					data-testid="signup-email-input"
-					disabled={disabled || isLoading}
-					id="signup-email"
-					onChange={(e) => setEmail(e.target.value)}
 					required
-					type="email"
-					value={email}
+					value={formData.name}
+					onChange={handleInputChange}
+					disabled={isLoading}
+					autoComplete="name"
 				/>
-			</div>
-
-			<div>
-				<label htmlFor="signup-password">Password</label>
-				<input
-					autoComplete="new-password"
-					data-testid="signup-password-input"
-					disabled={disabled || isLoading}
-					id="signup-password"
-					minLength={minPasswordLength}
-					onChange={(e) => setPassword(e.target.value)}
-					required
-					type="password"
-					value={password}
-				/>
-				{minPasswordLength > 0 && (
-					<small>Must be at least {minPasswordLength} characters</small>
+				{validationErrors.name && (
+					<div role="alert">
+						{validationErrors.name}
+					</div>
 				)}
 			</div>
 
-			{requirePasswordConfirmation && (
-				<div>
-					<label htmlFor="signup-confirm-password">Confirm Password</label>
-					<input
-						autoComplete="new-password"
-						data-testid="signup-confirm-password-input"
-						disabled={disabled || isLoading}
-						id="signup-confirm-password"
-						onChange={(e) => setConfirmPassword(e.target.value)}
-						required
-						type="password"
-						value={confirmPassword}
-					/>
+			<div>
+				<label htmlFor="email">
+					Email
+				</label>
+				<input
+					id="email"
+					name="email"
+					type="email"
+					required
+					value={formData.email}
+					onChange={handleInputChange}
+					disabled={isLoading}
+					autoComplete="email"
+				/>
+				{validationErrors.email && (
+					<div role="alert">
+						{validationErrors.email}
+					</div>
+				)}
+			</div>
+
+			<div>
+				<label htmlFor="password">
+					Password
+				</label>
+				<input
+					id="password"
+					name="password"
+					type="password"
+					required
+					value={formData.password}
+					onChange={handleInputChange}
+					disabled={isLoading}
+					autoComplete="new-password"
+				/>
+				{validationErrors.password && (
+					<div role="alert">
+						{validationErrors.password}
+					</div>
+				)}
+			</div>
+
+			<div>
+				<label htmlFor="confirmPassword">
+					Confirm Password
+				</label>
+				<input
+					id="confirmPassword"
+					name="confirmPassword"
+					type="password"
+					required
+					value={formData.confirmPassword}
+					onChange={handleInputChange}
+					disabled={isLoading}
+					autoComplete="new-password"
+				/>
+				{validationErrors.confirmPassword && (
+					<div role="alert">
+						{validationErrors.confirmPassword}
+					</div>
+				)}
+			</div>
+
+			{error && (
+				<div role="alert">
+					{error.message}
 				</div>
 			)}
 
 			<button
-				data-testid="signup-submit-button"
-				disabled={
-					disabled ||
-					isLoading ||
-					!name ||
-					!email ||
-					!password ||
-					(requirePasswordConfirmation && !confirmPassword)
-				}
 				type="submit"
+				disabled={isLoading}
 			>
-				{isLoading ? "Creating account..." : "Sign up"}
+				{isLoading ? "Creating account..." : "Create account"}
 			</button>
-
-			{showSignInLink && (
-				<div>
-					{renderSignInLink ? (
-						renderSignInLink()
-					) : (
-						<p>
-							Already have an account?{" "}
-							<a data-testid="signup-signin-link" href="/sign-in">
-								Sign in
-							</a>
-						</p>
-					)}
-				</div>
-			)}
 		</form>
 	);
 }

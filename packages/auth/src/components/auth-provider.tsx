@@ -1,77 +1,87 @@
-import type { ReactNode } from "react";
-import type { AuthClient } from "../client/index.js";
+/**
+ * Authentication Provider Component
+ * Provides authentication context to the application
+ */
+
+"use client";
+
+import { createContext, useContext, type ReactNode } from "react";
+import type { AuthClient } from "../client/index";
+import { useAuth, type AuthState } from "../client/hooks";
 
 /**
- * Props for the AuthProvider component
+ * Authentication context interface
  */
-export type AuthProviderProps = {
-	/**
-	 * Auth client instance
-	 */
+export type AuthContextValue = AuthState & {
 	authClient: AuthClient;
-
-	/**
-	 * Children components
-	 */
-	children: ReactNode;
-};
-
-/**
- * Authentication provider component
- *
- * Wraps your app to provide authentication context to all child components.
- * This is required for the auth hooks and components to work properly.
- *
- * @param props - AuthProvider props
- * @returns JSX element
- *
- * @example
- * ```typescript
- * import { AuthProvider } from "@workspace/auth/components";
- * import { authClient } from "./lib/auth";
- *
- * function App() {
- *   return (
- *     <AuthProvider authClient={authClient}>
- *       <YourAppContent />
- *     </AuthProvider>
- *   );
- * }
- * ```
- */
-export function AuthProvider({ authClient, children }: AuthProviderProps) {
-	// Better Auth's React client automatically provides context
-	// when using createAuthClient from "better-auth/react"
-	// The session state is managed internally
-	return <>{children}</>;
 }
 
 /**
- * Higher-order component to wrap your app with authentication
- *
- * @param authClient - Auth client instance
- * @returns Function that wraps a component with auth provider
- *
- * @example
- * ```typescript
- * import { withAuth } from "@workspace/auth/components";
- * import { authClient } from "./lib/auth";
- *
- * const AppWithAuth = withAuth(authClient)(App);
- *
- * export default AppWithAuth;
- * ```
+ * Authentication context
  */
-export function withAuth(authClient: AuthClient) {
-	return function WithAuthProvider<P extends object>(
-		Component: React.ComponentType<P>
-	) {
-		return function AuthWrappedComponent(props: P) {
-			return (
-				<AuthProvider authClient={authClient}>
-					<Component {...props} />
-				</AuthProvider>
-			);
-		};
+const AuthContext = createContext<AuthContextValue | null>(null);
+
+/**
+ * Authentication provider props
+ */
+export type AuthProviderProps = {
+	children: ReactNode;
+	authClient: AuthClient;
+}
+
+/**
+ * Authentication provider component
+ * Wraps the application and provides authentication state
+ */
+export function AuthProvider({ children, authClient }: AuthProviderProps) {
+	const authState = useAuth(authClient);
+
+	const value: AuthContextValue = {
+		...authState,
+		authClient,
 	};
+
+	return (
+		<AuthContext.Provider value={value}>
+			{children}
+		</AuthContext.Provider>
+	);
+}
+
+/**
+ * Hook to use authentication context
+ * Must be used within an AuthProvider
+ */
+export function useAuthContext(): AuthContextValue {
+	const context = useContext(AuthContext);
+
+	if (!context) {
+		throw new Error("useAuthContext must be used within an AuthProvider");
+	}
+
+	return context;
+}
+
+/**
+ * Hook to get current user
+ */
+export function useUser() {
+	const { user, isLoading } = useAuthContext();
+	return { user, isLoading };
+}
+
+/**
+ * Hook to get current session
+ */
+export function useSession() {
+	const { session, isLoading } = useAuthContext();
+	return { session, isLoading };
+}
+
+/**
+ * Hook to check if user is authenticated
+ */
+export function useIsAuthenticated() {
+	const { isAuthenticated, isLoading } = useAuthContext();
+	return { isAuthenticated, isLoading };
 }

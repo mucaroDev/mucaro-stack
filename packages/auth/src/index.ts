@@ -1,99 +1,80 @@
 /**
- * @workspace/auth
- *
- * A comprehensive authentication package built on Better Auth for the mucaro-stack monorepo.
- * Provides server-side auth configuration, client-side hooks, and unstyled components.
- *
- * @example
- * ```typescript
- * // Server setup
- * import { createAuthServer } from "@workspace/auth/server";
- * import { createDatabase } from "@workspace/db/connection";
- *
- * const db = createDatabase({ connectionString: process.env.DATABASE_URL });
- * export const auth = createAuthServer({
- *   database: db,
- *   secret: process.env.BETTER_AUTH_SECRET,
- *   baseURL: process.env.BETTER_AUTH_URL,
- * });
- *
- * // Client setup
- * import { createBetterAuthClient } from "@workspace/auth/client";
- *
- * export const authClient = createBetterAuthClient({
- *   baseURL: process.env.NEXT_PUBLIC_AUTH_URL
- * });
- *
- * // Component usage
- * import { SignInForm, AuthGuard } from "@workspace/auth/components";
- *
- * function App() {
- *   return (
- *     <AuthGuard fallback={<SignInForm authClient={authClient} />}>
- *       <Dashboard />
- *     </AuthGuard>
- *   );
- * }
- * ```
+ * Auth Package
+ * Complete authentication solution using Better Auth
  */
 
-export {
-	useAuth,
-	useAuthActions,
-	useIsAuthenticated,
-	useUser,
-} from "./client/hooks.js";
-export type {
-	AuthClient,
-	AuthClientConfig,
-	InferAuthClient,
-} from "./client/index.js";
+// Server exports
+export { auth, createBetterAuth, type Auth } from "./server/index";
 
 // Client exports
-export { createBetterAuthClient, useSession } from "./client/index.js";
-export type {
-	AuthGuardProps,
-	AuthProviderProps,
-	SignInFormProps,
-	SignOutButtonProps,
-	SignUpFormProps,
-	UserProfileProps,
-} from "./components/index.js";
+export { 
+	createBetterAuthClient, 
+	authClient, 
+	createAuthClient,
+	type AuthClient, 
+	type BetterAuthClientOptions 
+} from "./client/index";
+
+// Hook exports
+export {
+	useAuth,
+	useSignIn,
+	useSignUp,
+	useSignOut,
+	useUpdateUser,
+	type AuthState,
+	type UseSignInReturn,
+	type UseSignUpReturn,
+	type UseSignOutReturn,
+	type UseUpdateUserReturn
+} from "./client/hooks";
+
 // Component exports
 export {
-	AuthGuard,
 	AuthProvider,
+	useAuthContext,
+	useUser,
+	useSession,
+	useIsAuthenticated,
 	SignInForm,
-	SignOutButton,
 	SignUpForm,
+	SignOutButton,
 	UserProfile,
-	withAuth,
-	withAuthGuard,
-} from "./components/index.js";
+	AuthGuard,
+	Protected,
+	Guest,
+	type AuthContextValue,
+	type SignInFormProps,
+	type SignUpFormProps,
+	type SignOutButtonProps,
+	type UserProfileProps,
+	type AuthGuardProps
+} from "./components/index";
+
 // Schema exports
 export {
-	account,
+	signInSchema,
+	signUpSchema,
+	updateUserSchema,
+	passwordResetSchema,
+	passwordResetConfirmSchema,
+	emailVerificationSchema,
+	changePasswordSchema,
 	authSchema,
-	session,
 	user,
+	session,
+	account,
 	verification,
-} from "./schema/index.js";
-export type { AuthServer, AuthServerConfig } from "./server/index.js";
-// Server exports
-export { createAuthServer } from "./server/index.js";
+	type SignInData,
+	type SignUpData,
+	type UpdateUserData,
+	type PasswordResetData,
+	type PasswordResetConfirmData,
+	type EmailVerificationData,
+	type ChangePasswordData
+} from "./schema/index";
 
 // Type exports
 export type {
-	Account,
-	AuthActions,
-	AuthEnvVars,
-	AuthState,
-	AuthTables,
-	PasswordChangeData,
-	Session,
-	SignInCredentials,
-	SignUpData,
-	UseAuthReturn,
-	User,
-	UserUpdateData,
-} from "./types/index.js";
+	BaseAuthProps
+} from "./types/index";

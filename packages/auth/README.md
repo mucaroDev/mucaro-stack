@@ -1,19 +1,20 @@
 # @workspace/auth
 
-A comprehensive authentication package built on [Better Auth](https://better-auth.com) for the mucaro-stack monorepo. Provides server-side auth configuration, client-side hooks, and unstyled components that integrate seamlessly with your existing database and UI components.
+A comprehensive authentication package built with Better Auth, providing server-side authentication, client-side utilities, and React components.
 
 ## Features
 
-- 🔐 **Server-side Auth**: Pre-configured Better Auth server with Drizzle ORM adapter
-- ⚛️ **React Client**: Type-safe hooks and client configuration
-- 🎨 **Unstyled Components**: Authentication components without styling constraints
-- 🛡️ **Type Safety**: Full TypeScript support with comprehensive type definitions
-- 🗃️ **Database Integration**: Works with your existing `@workspace/db` package
-- 🔧 **Flexible Configuration**: Environment-based configuration with sensible defaults
+- **Email & Password Authentication** - Built-in support for traditional login
+- **Session Management** - Secure session handling with configurable expiration
+- **React Integration** - Ready-to-use React components and hooks
+- **TypeScript Support** - Fully typed for better development experience
+- **Database Integration** - Uses Drizzle ORM with PostgreSQL
+- **Form Validation** - Built-in validation with Zod schemas
+- **Security** - CSRF protection, rate limiting, and secure defaults
 
 ## Installation
 
-This package is already included in the monorepo workspace. Install dependencies:
+This package is part of the workspace and should be installed automatically:
 
 ```bash
 pnpm install
@@ -21,92 +22,70 @@ pnpm install
 
 ## Quick Start
 
-### 1. Database Setup
+### 1. Server Setup
 
-First, ensure your database includes the auth schema. The auth tables will be automatically created when you run migrations.
+Create your auth instance with database connection:
 
 ```typescript
-// In your database migration or schema file
-import { authSchema } from "@workspace/auth/schema";
+import { createBetterAuth } from "@workspace/auth/server";
+import { db } from "@workspace/db/connection";
 
-// The schema includes: user, session, account, verification tables
+export const auth = createBetterAuth(db);
 ```
 
-### 2. Server Setup
+### 2. Client Setup
 
-Create your auth server instance:
-
-```typescript
-// lib/auth.server.ts
-import { createAuthServer } from "@workspace/auth/server";
-import { createDatabase } from "@workspace/db/connection";
-
-const db = createDatabase({
-  connectionString: process.env.DATABASE_URL
-});
-
-export const auth = createAuthServer({
-  database: db,
-  secret: process.env.BETTER_AUTH_SECRET!, // Required
-  baseURL: process.env.BETTER_AUTH_URL || "http://localhost:3000",
-  trustedOrigins: [process.env.APP_URL || "http://localhost:3000"],
-  session: {
-    expiresIn: 60 * 60 * 24 * 7, // 7 days
-  },
-  emailVerification: {
-    required: false,
-    autoSignInAfterVerification: true,
-  },
-});
-```
-
-### 3. Client Setup
-
-Create your auth client:
+Create an auth client for your app:
 
 ```typescript
-// lib/auth.client.ts
 import { createBetterAuthClient } from "@workspace/auth/client";
 
 export const authClient = createBetterAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000"
+  baseURL: process.env.NEXT_PUBLIC_AUTH_URL || "http://localhost:3000",
+  fetchOptions: {
+    credentials: "include",
+  },
 });
 ```
 
-### 4. Component Usage
+### 3. React Provider
 
-Use the unstyled components in your app:
+Wrap your app with the auth provider:
 
-```typescript
-// components/LoginForm.tsx
-import { SignInForm } from "@workspace/auth/components";
-import { authClient } from "@/lib/auth.client";
+```tsx
+import { AuthProvider } from "@workspace/auth/components";
+import { authClient } from "./lib/auth";
 
-export function LoginForm() {
+function App({ children }) {
   return (
-    <div className="login-container">
-      <SignInForm
-        authClient={authClient}
-        className="space-y-4"
-        onSuccess={() => router.push('/dashboard')}
-        onError={(error) => toast.error(error.message)}
-      />
-    </div>
+    <AuthProvider authClient={authClient}>
+      {children}
+    </AuthProvider>
+  );
+}
+```
+
+### 4. Use Components
+
+Use the pre-built components:
+
+```tsx
+import { SignInForm, SignUpForm, UserProfile, Protected } from "@workspace/auth/components";
+
+function LoginPage() {
+  return (
+    <SignInForm
+      onSuccess={() => router.push("/dashboard")}
+      onError={(error) => console.error(error)}
+    />
   );
 }
 
-// components/ProtectedPage.tsx
-import { AuthGuard } from "@workspace/auth/components";
-import { LoginForm } from "./LoginForm";
-
-export function ProtectedPage({ children }) {
+function Dashboard() {
   return (
-    <AuthGuard
-      fallback={<LoginForm />}
-      loading={<div>Loading...</div>}
-    >
-      {children}
-    </AuthGuard>
+    <Protected>
+      <UserProfile />
+    </Protected>
   );
 }
 ```
@@ -115,193 +94,114 @@ export function ProtectedPage({ children }) {
 
 ### Server
 
-#### `createAuthServer(config)`
-
-Creates a Better Auth server instance.
-
-**Parameters:**
-- `config.database` - Database instance from `@workspace/db`
-- `config.secret` - Secret key for signing tokens (required)
-- `config.baseURL` - Base URL for the application
-- `config.trustedOrigins` - Array of trusted origins for CORS
-- `config.session` - Session configuration options
-- `config.emailVerification` - Email verification settings
-- `config.rateLimit` - Rate limiting configuration
+- `createBetterAuth(db)` - Create auth instance with database
+- `auth` - Default auth instance (requires env configuration)
 
 ### Client
 
-#### `createBetterAuthClient(config)`
+- `createBetterAuthClient(options)` - Create auth client
+- `authClient` - Default auth client
 
-Creates a Better Auth client instance with React hooks.
+### Hooks
 
-**Parameters:**
-- `config.baseURL` - Base URL where your auth server is running
-- `config.fetchOptions` - Additional fetch options for auth requests
-
-#### Hooks
-
-- `useAuth()` - Get authentication status and session data
-- `useUser()` - Get the current user or null
-- `useIsAuthenticated()` - Boolean authentication status
-- `useAuthActions(authClient)` - Authentication action functions
+- `useAuth(client)` - Get authentication state
+- `useSignIn(client)` - Sign in functionality
+- `useSignUp(client)` - Sign up functionality
+- `useSignOut(client)` - Sign out functionality
+- `useUpdateUser(client)` - Update user profile
 
 ### Components
 
-All components are unstyled and accept standard HTML attributes plus auth-specific props.
+- `AuthProvider` - Authentication context provider
+- `SignInForm` - Email/password sign in form
+- `SignUpForm` - User registration form
+- `SignOutButton` - Sign out button
+- `UserProfile` - User profile display/edit
+- `AuthGuard` - Route protection
+- `Protected` - Require authentication
+- `Guest` - Require no authentication
 
-#### `<SignInForm />`
-Email/password sign-in form with validation and error handling.
+### Context Hooks
 
-#### `<SignUpForm />`
-User registration form with password confirmation and validation.
-
-#### `<SignOutButton />`
-Button that signs out the current user with optional confirmation.
-
-#### `<UserProfile />`
-Displays current user information with customizable rendering.
-
-#### `<AuthGuard />`
-Conditionally renders content based on authentication status.
-
-#### `<AuthProvider />`
-Provides authentication context (automatically handled by Better Auth).
+- `useAuthContext()` - Access auth context
+- `useUser()` - Get current user
+- `useSession()` - Get current session
+- `useIsAuthenticated()` - Check auth status
 
 ## Environment Variables
 
-Required environment variables:
-
 ```env
 # Required
-BETTER_AUTH_SECRET=your-super-secret-key-here
-
-# Optional (with defaults)
-BETTER_AUTH_URL=http://localhost:3000
-APP_URL=http://localhost:3000
+AUTH_SECRET=your-secret-key
 DATABASE_URL=postgresql://...
+
+# Optional
+TRUSTED_ORIGINS=https://yourdomain.com,https://app.yourdomain.com
+NODE_ENV=development
 ```
 
 ## Database Schema
 
-The package automatically creates these tables:
+The package uses the following tables (managed by `@workspace/db`):
 
-- `user` - User accounts and profile information
-- `session` - Active user sessions
-- `account` - OAuth provider accounts (for future social auth)
-- `verification` - Email verification and password reset tokens
+- `user` - User accounts
+- `session` - Active sessions
+- `account` - OAuth accounts (for future social auth)
+- `verification` - Email verification tokens
 
-## Best Practices
+## Type Safety
 
-### Security
-
-1. **Always use HTTPS in production**
-2. **Set a strong `BETTER_AUTH_SECRET`** - use a cryptographically secure random string
-3. **Configure `trustedOrigins`** to match your production domains
-4. **Enable rate limiting** to prevent brute force attacks
-
-### Development
-
-1. **Use TypeScript** - The package provides comprehensive type definitions
-2. **Handle errors gracefully** - All auth actions can throw errors
-3. **Customize components** - The unstyled components are designed to be styled with your design system
-4. **Test authentication flows** - Components include `data-testid` attributes for testing
-
-### Performance
-
-1. **Use `AuthGuard`** to protect routes efficiently
-2. **Leverage session caching** - Better Auth handles session caching automatically
-3. **Minimize re-renders** - Use `useUser()` and `useIsAuthenticated()` for specific data needs
-
-## Examples
-
-### Custom Styled Sign-In Form
+All components and hooks are fully typed:
 
 ```typescript
-import { SignInForm } from "@workspace/auth/components";
-import { authClient } from "@/lib/auth.client";
+import type { User, Session, AuthState } from "@workspace/auth/types";
 
-export function StyledSignInForm() {
-  return (
-    <SignInForm
-      authClient={authClient}
-      className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md"
-      onSuccess={() => router.push('/dashboard')}
-      onError={(error) => {
-        console.error('Sign in failed:', error);
-        toast.error(error.message);
-      }}
-      showRememberMe={true}
-      renderSignUpLink={() => (
-        <Link href="/register" className="text-blue-600 hover:underline">
-          Create an account
-        </Link>
-      )}
-    />
-  );
-}
+const user: User = {
+  id: "123",
+  name: "John Doe",
+  email: "john@example.com",
+  emailVerified: true,
+  image: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 ```
 
-### Role-Based Access Control
+## Validation
+
+Built-in Zod schemas for form validation:
 
 ```typescript
-import { AuthGuard } from "@workspace/auth/components";
+import { signUpSchema, signInSchema } from "@workspace/auth/schema";
 
-export function AdminPanel() {
-  return (
-    <AuthGuard
-      canAccess={(user) => user.role === 'admin'}
-      accessDeniedFallback={
-        <div className="text-red-600">
-          Admin access required
-        </div>
-      }
-      fallback={<SignInForm authClient={authClient} />}
-    >
-      <AdminDashboard />
-    </AuthGuard>
-  );
-}
+const validatedData = signUpSchema.parse({
+  name: "John Doe",
+  email: "john@example.com",
+  password: "SecurePassword123",
+});
 ```
 
-### Custom User Profile
+## Security Features
 
-```typescript
-import { UserProfile } from "@workspace/auth/components";
+- **CSRF Protection** - Automatic CSRF token validation
+- **Rate Limiting** - Configurable request limits
+- **Session Security** - Secure session cookies
+- **Password Requirements** - Configurable password policies
+- **Input Validation** - All inputs validated with Zod
 
-export function CustomUserProfile() {
-  return (
-    <UserProfile className="flex items-center space-x-3">
-      {(user) => (
-        <>
-          <img 
-            src={user.image || '/default-avatar.png'} 
-            alt={`${user.name}'s avatar`}
-            className="w-10 h-10 rounded-full"
-          />
-          <div>
-            <div className="font-semibold">{user.name}</div>
-            <div className="text-sm text-gray-600">{user.email}</div>
-            {user.emailVerified && (
-              <span className="text-xs text-green-600">✓ Verified</span>
-            )}
-          </div>
-        </>
-      )}
-    </UserProfile>
-  );
-}
+## Development
+
+```bash
+# Build the package
+pnpm build
+
+# Watch for changes
+pnpm dev
+
+# Type check
+pnpm check-types
+
+# Lint and format
+pnpm lint
+pnpm format
 ```
-
-## Contributing
-
-This package follows the monorepo patterns established in the workspace. When adding new features:
-
-1. Follow the existing TypeScript patterns
-2. Add comprehensive JSDoc comments
-3. Include proper error handling
-4. Add `data-testid` attributes to components
-5. Update this README with new features
-
-## License
-
-Private package for the mucaro-stack monorepo.

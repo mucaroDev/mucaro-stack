@@ -1,28 +1,61 @@
+import { AuthNav } from "../components/auth-nav";
 import { DatabaseStatus } from "../components/database-status";
+import { ProtectedContent } from "../components/protected-content";
 import { UserManagement } from "../components/user-management";
 
 export default function Page() {
 	return (
 		<div className="min-h-svh bg-gray-50">
+			{/* Header with Auth Navigation */}
+			<header className="border-b bg-white shadow-sm">
+				<div className="container mx-auto flex items-center justify-between px-4 py-4">
+					<div>
+						<h1 className="font-bold text-2xl text-gray-900">Mucaro Stack</h1>
+						<p className="text-gray-600 text-sm">
+							Database & Authentication Showcase
+						</p>
+					</div>
+					<AuthNav />
+				</div>
+			</header>
+
 			<div className="container mx-auto px-4 py-8">
 				<div className="mb-8">
-					<h1 className="mb-4 font-bold text-4xl">Database Showcase</h1>
+					<h1 className="mb-4 font-bold text-4xl">Full-Stack Showcase</h1>
 					<p className="text-gray-600 text-lg">
-						Demonstrating CRUD operations, validation, error handling, and more
-						with our @workspace/db package.
+						Demonstrating CRUD operations, authentication, validation, error
+						handling, and more with our @workspace/db and @workspace/auth
+						packages.
 					</p>
 				</div>
 
 				<div className="space-y-8">
+					{/* Authentication Demo */}
+					<div className="rounded-lg border bg-white p-6">
+						<h2 className="mb-4 font-semibold text-2xl">
+							🔐 Authentication Demo
+						</h2>
+						<ProtectedContent />
+					</div>
+
 					{/* Database Status */}
 					<DatabaseStatus />
 
-					{/* Database Features Overview */}
+					{/* Features Overview */}
 					<div className="rounded-lg border bg-white p-6">
 						<h2 className="mb-4 font-semibold text-2xl">
 							Features Demonstrated
 						</h2>
-						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+						<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+							<div className="rounded border p-4">
+								<h3 className="mb-2 font-semibold text-blue-600">
+									🔐 Authentication
+								</h3>
+								<p className="text-gray-600 text-sm">
+									Email/password auth with Better Auth, session management, and
+									protected routes
+								</p>
+							</div>
 							<div className="rounded border p-4">
 								<h3 className="mb-2 font-semibold text-green-600">
 									✅ CRUD Operations
@@ -69,6 +102,14 @@ export default function Page() {
 								</h3>
 								<p className="text-gray-600 text-sm">
 									Full TypeScript support with inferred types
+								</p>
+							</div>
+							<div className="rounded border p-4">
+								<h3 className="mb-2 font-semibold text-purple-600">
+									🎨 Component Library
+								</h3>
+								<p className="text-gray-600 text-sm">
+									Unstyled, accessible components ready for any design system
 								</p>
 							</div>
 						</div>

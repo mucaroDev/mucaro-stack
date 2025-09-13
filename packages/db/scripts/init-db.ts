@@ -168,10 +168,10 @@ async function createDatabaseIfNotExists(
 
 	try {
 		await client.connect();
-		
+
 		// Create database with proper quoting to handle special characters
 		await client.query(`CREATE DATABASE "${dbName}"`);
-		
+
 		console.log(`✅ Database '${dbName}' created successfully`);
 	} catch (error) {
 		console.error(`❌ Error creating database '${dbName}':`, error);
@@ -203,7 +203,7 @@ async function initializeDatabase(): Promise<void> {
 
 		// Connect to the new database and run migrations
 		console.log("🔄 Running migrations...");
-		
+
 		const db = createDatabase({
 			...config,
 			database: dbName,

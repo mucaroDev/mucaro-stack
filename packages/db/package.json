@@ -7,6 +7,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "lint": "ultracite check",
+    "format": "biome format --write .",
     "generate": "drizzle-kit generate",
     "migrate": "drizzle-kit migrate",
     "studio": "drizzle-kit studio",

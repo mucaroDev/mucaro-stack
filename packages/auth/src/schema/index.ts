@@ -1,94 +1,95 @@
-import {
-	boolean,
-	pgTable,
-	text,
-	timestamp,
-	varchar,
-} from "drizzle-orm/pg-core";
+/**
+ * Authentication Schema
+ * Schema definitions and validation for auth package
+ */
+
+import { z } from "zod";
+
+// Constants
+const MAX_NAME_LENGTH = 100;
+const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 128;
 
 /**
- * Better Auth User table
- * Stores user authentication and profile information
+ * Sign in schema
  */
-export const user = pgTable("user", {
-	id: varchar("id", { length: 36 }).primaryKey(),
-	name: text("name").notNull(),
-	email: varchar("email", { length: 255 }).notNull().unique(),
-	emailVerified: boolean("email_verified").default(false).notNull(),
-	image: text("image"),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.defaultNow()
-		.$onUpdate(() => new Date())
-		.notNull(),
+export const signInSchema = z.object({
+	email: z.string().email("Please enter a valid email address"),
+	password: z.string().min(1, "Password is required"),
+	rememberMe: z.boolean().optional().default(false),
+	callbackURL: z.string().url().optional(),
 });
 
 /**
- * Better Auth Session table
- * Stores active user sessions
+ * Sign up schema
  */
-export const session = pgTable("session", {
-	id: varchar("id", { length: 36 }).primaryKey(),
-	expiresAt: timestamp("expires_at").notNull(),
-	token: varchar("token", { length: 255 }).notNull().unique(),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.$onUpdate(() => new Date())
-		.notNull(),
-	ipAddress: text("ip_address"),
-	userAgent: text("user_agent"),
-	userId: varchar("user_id", { length: 36 })
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
+export const signUpSchema = z.object({
+	name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH, "Name must be less than 100 characters"),
+	email: z.string().email("Please enter a valid email address"),
+	password: z.string()
+		.min(MIN_PASSWORD_LENGTH, "Password must be at least 8 characters long")
+		.max(MAX_PASSWORD_LENGTH, "Password must be less than 128 characters")
+		.regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
+	image: z.string().url("Please enter a valid image URL").optional(),
+	callbackURL: z.string().url().optional(),
 });
 
 /**
- * Better Auth Account table
- * Stores OAuth provider accounts linked to users
+ * Update user schema
  */
-export const account = pgTable("account", {
-	id: varchar("id", { length: 36 }).primaryKey(),
-	accountId: text("account_id").notNull(),
-	providerId: text("provider_id").notNull(),
-	userId: varchar("user_id", { length: 36 })
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
-	accessToken: text("access_token"),
-	refreshToken: text("refresh_token"),
-	idToken: text("id_token"),
-	accessTokenExpiresAt: timestamp("access_token_expires_at"),
-	refreshTokenExpiresAt: timestamp("refresh_token_expires_at"),
-	scope: text("scope"),
-	password: text("password"),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.$onUpdate(() => new Date())
-		.notNull(),
+export const updateUserSchema = z.object({
+	name: z.string().min(1, "Name is required").max(MAX_NAME_LENGTH, "Name must be less than 100 characters").optional(),
+	image: z.string().url("Please enter a valid image URL").optional(),
 });
 
 /**
- * Better Auth Verification table
- * Stores verification tokens for email verification, password reset, etc.
+ * Password reset schema
  */
-export const verification = pgTable("verification", {
-	id: varchar("id", { length: 36 }).primaryKey(),
-	identifier: text("identifier").notNull(),
-	value: text("value").notNull(),
-	expiresAt: timestamp("expires_at").notNull(),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.defaultNow()
-		.$onUpdate(() => new Date())
-		.notNull(),
+export const passwordResetSchema = z.object({
+	email: z.string().email("Please enter a valid email address"),
 });
 
 /**
- * Auth schema for Better Auth
- * Export this to be used with the drizzle adapter
+ * Password reset confirmation schema
  */
-export const authSchema = {
-	user,
-	session,
-	account,
-	verification,
-} as const;
+export const passwordResetConfirmSchema = z.object({
+	token: z.string().min(1, "Reset token is required"),
+	password: z.string()
+		.min(MIN_PASSWORD_LENGTH, "Password must be at least 8 characters long")
+		.max(MAX_PASSWORD_LENGTH, "Password must be less than 128 characters")
+		.regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
+});
+
+/**
+ * Email verification schema
+ */
+export const emailVerificationSchema = z.object({
+	token: z.string().min(1, "Verification token is required"),
+});
+
+/**
+ * Change password schema
+ */
+export const changePasswordSchema = z.object({
+	currentPassword: z.string().min(1, "Current password is required"),
+	newPassword: z.string()
+		.min(MIN_PASSWORD_LENGTH, "Password must be at least 8 characters long")
+		.max(MAX_PASSWORD_LENGTH, "Password must be less than 128 characters")
+		.regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, "Password must contain at least one uppercase letter, one lowercase letter, and one number"),
+});
+
+/**
+ * Type exports
+ */
+export type SignInData = z.infer<typeof signInSchema>;
+export type SignUpData = z.infer<typeof signUpSchema>;
+export type UpdateUserData = z.infer<typeof updateUserSchema>;
+export type PasswordResetData = z.infer<typeof passwordResetSchema>;
+export type PasswordResetConfirmData = z.infer<typeof passwordResetConfirmSchema>;
+export type EmailVerificationData = z.infer<typeof emailVerificationSchema>;
+export type ChangePasswordData = z.infer<typeof changePasswordSchema>;
+
+/**
+ * Re-export database schema for Better Auth
+ */
+export { authSchema, authUser as user, session, account, verification } from "@workspace/db/schema";
