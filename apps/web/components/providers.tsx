@@ -1,9 +1,8 @@
 "use client";
 
+import { AuthProvider } from "@workspace/auth/provider";
 import { ThemeProvider as NextThemesProvider } from "next-themes";
 import type * as React from "react";
-import { AuthProvider } from "@workspace/auth/components";
-import { authClient } from "@/lib/auth";
 
 export function Providers({ children }: { children: React.ReactNode }) {
 	return (
@@ -14,7 +13,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 			enableColorScheme
 			enableSystem
 		>
-			<AuthProvider authClient={authClient}>{children}</AuthProvider>
+			<AuthProvider>{children}</AuthProvider>
 		</NextThemesProvider>
 	);
 }

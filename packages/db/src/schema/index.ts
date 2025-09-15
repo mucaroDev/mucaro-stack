@@ -3,14 +3,19 @@
  * Centralized exports for all database schemas
  */
 
-// Auth schema (from @workspace/auth)
+// Todo management schema
 export {
-	account,
-	authSchema,
-	session,
-	user as authUser,
-	verification,
-} from "./auth";
+	insertTodoSchema,
+	type NewTodo,
+	selectTodoSchema,
+	type Todo,
+	type TodoWithUser,
+	todos,
+	todosRelations,
+	type UpdateTodo,
+	updateTodoSchema,
+	usersRelations,
+} from "./todos";
 // User management schema
 export {
 	insertUserSchema,

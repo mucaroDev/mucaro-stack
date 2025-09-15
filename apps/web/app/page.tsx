@@ -1,6 +1,7 @@
 import { AuthNav } from "../components/auth-nav";
 import { DatabaseStatus } from "../components/database-status";
 import { ProtectedContent } from "../components/protected-content";
+import { TodoList } from "../components/todo-list";
 import { UserManagement } from "../components/user-management";
 
 export default function Page() {
@@ -38,6 +39,14 @@ export default function Page() {
 						<ProtectedContent />
 					</div>
 
+					{/* Todo List - Protected Content */}
+					<div className="rounded-lg border bg-white p-6">
+						<h2 className="mb-6 font-semibold text-2xl">
+							📋 Personal Todo List
+						</h2>
+						<TodoList />
+					</div>
+
 					{/* Database Status */}
 					<DatabaseStatus />
 
@@ -52,8 +61,17 @@ export default function Page() {
 									🔐 Authentication
 								</h3>
 								<p className="text-gray-600 text-sm">
-									Email/password auth with Better Auth, session management, and
-									protected routes
+									Clerk authentication with session management and protected
+									routes
+								</p>
+							</div>
+							<div className="rounded border p-4">
+								<h3 className="mb-2 font-semibold text-green-600">
+									📋 Todo Management
+								</h3>
+								<p className="text-gray-600 text-sm">
+									Personal todo list with CRUD operations, priorities, and due
+									dates
 								</p>
 							</div>
 							<div className="rounded border p-4">
@@ -61,7 +79,7 @@ export default function Page() {
 									✅ CRUD Operations
 								</h3>
 								<p className="text-gray-600 text-sm">
-									Create, Read, Update, Delete users with full validation
+									Create, Read, Update, Delete operations with full validation
 								</p>
 							</div>
 							<div className="rounded border p-4">

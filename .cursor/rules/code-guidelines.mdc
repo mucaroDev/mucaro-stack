@@ -6,12 +6,23 @@ alwaysApply: true
 
 # Mucaro Stack Development Guidelines
 
-A comprehensive guide for developing with Next.js, Better Auth, Drizzle ORM, PostgreSQL, Tailwind CSS, and Biome in a monorepo architecture.
+A comprehensive guide for developing with Next.js, Clerk Auth, Drizzle ORM, PostgreSQL, Tailwind CSS, and Biome in a monorepo architecture.
+
+## 🚨 CRITICAL ARCHITECTURE RULES
+
+**BEFORE writing any code, remember:**
+
+1. **Apps NEVER import external dependencies directly** if workspace packages exist
+2. **Always check workspace packages first** - extend them instead of bypassing them  
+3. **Follow the decision tree**: Auth → `@workspace/auth`, DB → `@workspace/db`, UI → `@workspace/ui`
+4. **Architecture over speed** - proper abstractions prevent technical debt
+
+**Quick Check**: If you're about to `pnpm add` an external package to an app, STOP and check if a workspace package should handle it instead.
 
 ## Tech Stack Overview
 
 - **Frontend**: Next.js 15+ with App Router, React 19, Tailwind CSS 4
-- **Authentication**: Better Auth with email/password and session management
+- **Authentication**: Clerk with OAuth, SSO, and session management  
 - **Database**: PostgreSQL with Drizzle ORM and Drizzle Kit migrations
 - **Styling**: Tailwind CSS 4 with utility classes only
 - **Tooling**: Biome for formatting/linting, TypeScript, pnpm workspaces
@@ -23,7 +34,7 @@ A comprehensive guide for developing with Next.js, Better Auth, Drizzle ORM, Pos
 
 ```
 packages/
-├── auth/           # @workspace/auth - Better Auth integration
+├── auth/          # @workspace/auth - Clerk authentication integration
 ├── db/            # @workspace/db - Database schema and connections  
 ├── ui/            # @workspace/ui - Shared UI components
 └── typescript-config/ # @workspace/typescript-config - Shared TS configs
@@ -36,39 +47,361 @@ apps/
 └── web/           # Next.js application
 ```
 
-## Package Usage Guidelines
+## CRITICAL: Monorepo Architecture Principles
 
-### @workspace/auth
+### **NEVER bypass workspace packages for direct external dependencies**
 
-**When to use**: For all authentication-related functionality
+**FUNDAMENTAL RULE**: Apps should NEVER install external dependencies that are already abstracted by workspace packages.
 
-**IMPORTANT**: Always reference `packages/auth/llms.txt` for Better Auth documentation and implementation patterns. This file contains comprehensive Better Auth documentation and should be consulted for:
-- Authentication flow patterns
-- API implementation examples
-- Client-side integration patterns
-- Advanced features and plugins
-- Troubleshooting and best practices
+#### ❌ **NEVER DO THIS**:
+```typescript
+// In apps/web/package.json - DON'T add these if workspace packages exist
+{
+  "dependencies": {
+    "@clerk/nextjs": "^6.20.0",     // ❌ Use @workspace/auth instead
+    "drizzle-orm": "^0.36.0",       // ❌ Use @workspace/db instead  
+    "lucide-react": "^0.475.0",     // ❌ Use @workspace/ui instead
+    "@radix-ui/react-*": "*"        // ❌ Use @workspace/ui instead
+  }
+}
+
+// In app code - DON'T import external deps directly
+import { SignIn } from "@clerk/nextjs";           // ❌ Bypasses abstraction
+import { clerkMiddleware } from "@clerk/nextjs/server"; // ❌ Bypasses abstraction
+import { db } from "drizzle-orm";                 // ❌ Bypasses abstraction
+import { Button } from "@radix-ui/react-button";  // ❌ Bypasses abstraction
+```
+
+#### ✅ **ALWAYS DO THIS**:
+```typescript
+// In apps/web/package.json - ONLY workspace packages
+{
+  "dependencies": {
+    "@workspace/auth": "workspace:*",     // ✅ Use workspace abstraction
+    "@workspace/db": "workspace:*",       // ✅ Use workspace abstraction
+    "@workspace/ui": "workspace:*"        // ✅ Use workspace abstraction
+  }
+}
+
+// In app code - ONLY import from workspace packages
+import { SignIn, SSOCallback } from "@workspace/auth/components";    // ✅ Clean abstraction
+import { authMiddleware } from "@workspace/auth/middleware";          // ✅ Clean abstraction  
+import { db, users } from "@workspace/db";                          // ✅ Clean abstraction
+import { Button } from "@workspace/ui/components";                   // ✅ Clean abstraction
+```
+
+### **Architecture Decision Framework**
+
+**BEFORE implementing ANY solution, ask:**
+
+1. **Does a workspace package already handle this concern?**
+   - If YES → Use the workspace package, extend it if needed
+   - If NO → Consider if this should be a new workspace package
+
+2. **Is this a cross-cutting concern?**
+   - Authentication → `@workspace/auth`
+   - Database → `@workspace/db` 
+   - UI Components → `@workspace/ui`
+   - Shared utilities → Create new workspace package
+
+3. **Will multiple apps need this functionality?**
+   - If YES → Must be in a workspace package
+   - If NO → Can be app-specific, but still prefer workspace packages
+
+### **Workspace Package Responsibilities**
+
+#### @workspace/auth
+- **Purpose**: Complete authentication abstraction layer
+- **Exports**: All auth components, hooks, middleware, server utilities
+- **Internal deps**: `@clerk/nextjs`, `@clerk/themes`, etc.
+- **Apps should NEVER**: Import from `@clerk/*` directly
 
 ```typescript
-// ✅ Server-side auth setup
-import { createBetterAuth } from "@workspace/auth/server";
-import { db } from "@workspace/db/connection";
-
-export const auth = createBetterAuth(db);
-
-// ✅ Client-side auth
-import { createBetterAuthClient } from "@workspace/auth/client";
-import { AuthProvider, SignInForm, Protected } from "@workspace/auth/components";
-import { useAuth, useSignIn } from "@workspace/auth/client";
-
-// ✅ API routes
-import { auth } from "@/lib/auth";
-
-export const { GET, POST } = auth.handler;
-
-// ❌ Don't implement auth from scratch
-// ❌ Don't use other auth libraries
+// ✅ @workspace/auth should export everything apps need
+export { SignIn, SignUp, SSOCallback } from "./components";
+export { authMiddleware, createRouteMatcher } from "./middleware";  
+export { auth, currentUser } from "./server";
+export { useAuth, useUser } from "./client";
 ```
+
+#### @workspace/db  
+- **Purpose**: Complete database abstraction layer
+- **Exports**: Connection, schemas, operations, migrations
+- **Internal deps**: `drizzle-orm`, `@types/pg`, etc.
+- **Apps should NEVER**: Import from `drizzle-orm` or database drivers directly
+
+```typescript
+// ✅ @workspace/db should export everything apps need
+export { db } from "./connection";
+export * from "./schema";
+export * from "./operations";  
+export * from "./types";
+```
+
+#### @workspace/ui
+- **Purpose**: Complete UI component system
+- **Exports**: All reusable components, styles, utilities
+- **Internal deps**: `@radix-ui/*`, `class-variance-authority`, etc.
+- **Apps should NEVER**: Import from `@radix-ui/*` or other UI libraries directly
+
+```typescript
+// ✅ @workspace/ui should export everything apps need
+export { Button, Input, Card, Dialog, Alert } from "./components";
+export { cn } from "./utils";
+export "./globals.css";
+```
+
+### **Dependency Management Rules**
+
+#### **For Apps (apps/web/)**:
+```json
+{
+  "dependencies": {
+    // ✅ ONLY these types of dependencies allowed:
+    "@workspace/*": "workspace:*",        // Workspace packages
+    "next": "^15.4.5",                   // Core framework  
+    "react": "^19.1.1",                  // Core framework
+    "react-dom": "^19.1.1"               // Core framework
+    
+    // ❌ NEVER add these if workspace packages exist:
+    // "@clerk/nextjs", "@radix-ui/*", "drizzle-orm", etc.
+  }
+}
+```
+
+#### **For Workspace Packages (packages/*/)**:
+```json
+{
+  "dependencies": {
+    // ✅ External dependencies that the package abstracts
+    "@clerk/nextjs": "^6.20.0",          // For @workspace/auth
+    "drizzle-orm": "^0.36.0",            // For @workspace/db
+    "@radix-ui/react-button": "^1.0.0"   // For @workspace/ui
+  }
+}
+```
+
+### **Problem-Solving Approach**
+
+#### **When encountering missing functionality:**
+
+1. **First**: Check if workspace package already provides it
+2. **Second**: Extend the workspace package to provide it  
+3. **Last Resort**: Add to app only if truly app-specific
+
+#### **Example: Need Clerk SSO callback**
+
+❌ **Wrong approach** (what happened before):
+```typescript
+// 1. Install @clerk/nextjs in web app
+// 2. Import directly: import { AuthenticateWithRedirectCallback } from '@clerk/nextjs'
+```
+
+✅ **Correct approach** (architectural solution):
+```typescript  
+// 1. Extend @workspace/auth package
+export function SSOCallback() {
+  return <AuthenticateWithRedirectCallback />;
+}
+
+// 2. Use from workspace package in app
+import { SSOCallback } from "@workspace/auth/components";
+```
+
+### **Benefits of This Architecture**
+
+1. **Single Source of Truth**: Each concern handled by one package
+2. **Easy Refactoring**: Change implementation without touching apps
+3. **Consistent APIs**: Same interface across all apps
+4. **Better Testing**: Mock workspace packages instead of external deps
+5. **Easier Upgrades**: Update external deps in one place
+6. **Clear Boundaries**: Each package has well-defined responsibilities
+
+### **Red Flags - Stop and Reconsider**
+
+🚨 **If you see any of these patterns, STOP and refactor**:
+
+- Apps importing from external libraries that workspace packages should handle
+- Duplicate external dependencies across apps and workspace packages
+- Apps bypassing workspace package abstractions
+- Inconsistent APIs for the same functionality across apps
+- External dependencies scattered across multiple packages
+
+### **Enforcement Rules**
+
+- **Code Reviews**: Must check dependency usage in apps
+- **Package.json Audits**: Apps should have minimal external dependencies  
+- **Import Linting**: Configure to prevent direct external imports
+- **Documentation**: Keep this architecture guide updated
+
+## **MANDATORY: Architecture-First Problem Solving**
+
+### **Before Writing ANY Code, Follow This Process:**
+
+#### **Step 1: Understand the Architecture**
+```
+1. Which workspace packages exist?
+2. What does each package handle?
+3. Where should this functionality live?
+4. Will this be reused across apps?
+```
+
+#### **Step 2: Check Existing Abstractions**
+```
+1. Does @workspace/auth already handle this auth concern?
+2. Does @workspace/db already handle this data concern?  
+3. Does @workspace/ui already handle this UI concern?
+4. If not, should it be extended to handle it?
+```
+
+#### **Step 3: Choose the Right Solution**
+```
+✅ Extend existing workspace package (preferred)
+✅ Create new workspace package (if cross-cutting)
+⚠️  Add to app (only if truly app-specific)
+❌ Install external dependency in app (never if workspace package exists)
+```
+
+### **Problem-Solving Examples**
+
+#### **Scenario: Need OAuth/SSO Authentication**
+
+❌ **Hacky Approach** (what NOT to do):
+```bash
+# 1. Install external dependency directly in app
+pnpm add @clerk/nextjs
+
+# 2. Import directly in app code
+import { AuthenticateWithRedirectCallback } from '@clerk/nextjs'
+```
+
+✅ **Architectural Approach** (what TO do):
+```bash
+# 1. Check: Does @workspace/auth exist? YES
+# 2. Check: Does it handle SSO? NO
+# 3. Solution: Extend @workspace/auth to handle SSO
+
+# In packages/auth/components/sso-callback.tsx
+export function SSOCallback() {
+  return <AuthenticateWithRedirectCallback />;
+}
+
+# In apps/web - use the abstraction
+import { SSOCallback } from "@workspace/auth/components";
+```
+
+#### **Scenario: Need Database Operations**
+
+❌ **Hacky Approach**:
+```typescript
+// Install drizzle-orm in app and use directly
+import { drizzle } from 'drizzle-orm/postgres-js';
+const db = drizzle(connectionString);
+```
+
+✅ **Architectural Approach**:
+```typescript
+// Use existing @workspace/db abstraction
+import { db, users } from "@workspace/db";
+const user = await db.select().from(users);
+```
+
+#### **Scenario: Need New UI Component**
+
+❌ **Hacky Approach**:
+```typescript
+// Install UI library directly in app
+import { Dialog } from '@radix-ui/react-dialog';
+```
+
+✅ **Architectural Approach**:
+```typescript
+// Check @workspace/ui first, extend if needed
+import { Dialog } from "@workspace/ui/components";
+```
+
+### **Decision Tree for Dependencies**
+
+```
+Need functionality?
+├── Is it authentication-related?
+│   ├── YES → Check @workspace/auth first
+│   │   ├── Exists → Use it
+│   │   └── Missing → Extend @workspace/auth
+│   └── NO → Continue
+├── Is it database-related?
+│   ├── YES → Check @workspace/db first  
+│   │   ├── Exists → Use it
+│   │   └── Missing → Extend @workspace/db
+│   └── NO → Continue
+├── Is it UI-related?
+│   ├── YES → Check @workspace/ui first
+│   │   ├── Exists → Use it  
+│   │   └── Missing → Extend @workspace/ui
+│   └── NO → Continue
+├── Is it shared across apps?
+│   ├── YES → Create new workspace package
+│   └── NO → Add to specific app (rare)
+```
+
+### **Quality Gates**
+
+**Before submitting any code, verify:**
+
+✅ **Architecture Compliance**:
+- [ ] No direct external dependencies in apps that bypass workspace packages
+- [ ] All cross-cutting concerns handled by appropriate workspace packages
+- [ ] Consistent API patterns across workspace packages
+- [ ] Clean separation of concerns
+
+✅ **Dependency Hygiene**:
+- [ ] Apps have minimal external dependencies
+- [ ] Workspace packages properly abstract external dependencies  
+- [ ] No duplicate dependencies across packages
+- [ ] All imports go through workspace package abstractions
+
+✅ **Future-Proofing**:
+- [ ] Solution is extensible and maintainable
+- [ ] External dependencies can be swapped without touching apps
+- [ ] API is consistent with existing workspace package patterns
+- [ ] Documentation is updated to reflect changes
+
+### **Common Anti-Patterns to Avoid**
+
+🚨 **Stop immediately if you find yourself doing any of these**:
+
+1. **Dependency Bypass**: Installing external deps in apps when workspace packages exist
+2. **Quick Fixes**: Adding functionality directly to apps instead of workspace packages  
+3. **Inconsistent APIs**: Different patterns for the same type of functionality
+4. **Tight Coupling**: Apps knowing about external dependency implementation details
+5. **Scattered Logic**: Same concern handled in multiple places
+
+### **Refactoring Checklist**
+
+**When you encounter architectural violations**:
+
+1. **Identify the Violation**:
+   - What external dependency is being used directly?
+   - Which workspace package should handle this concern?
+
+2. **Plan the Fix**:
+   - How can the workspace package be extended?
+   - What API should it expose?
+   - How will this affect existing code?
+
+3. **Implement Properly**:
+   - Add functionality to appropriate workspace package
+   - Update app code to use workspace package
+   - Remove direct external dependency from app
+   - Test that abstraction works correctly
+
+4. **Verify the Solution**:
+   - Apps no longer import external dependencies directly
+   - Functionality is properly abstracted
+   - API is consistent with existing patterns
+   - Documentation is updated
+
+## Package Usage Guidelines
 
 ### @workspace/db
 
@@ -77,7 +410,7 @@ export const { GET, POST } = auth.handler;
 ```typescript
 // ✅ Database connections
 import { db } from "@workspace/db/connection";
-import { users, authUser, session } from "@workspace/db/schema";
+import { users } from "@workspace/db/schema";
 
 // ✅ Queries with Drizzle
 const user = await db.select().from(users).where(eq(users.id, userId));
@@ -92,47 +425,273 @@ import { pgTable, text, timestamp } from "drizzle-orm/pg-core";
 
 ### @workspace/ui
 
-**When to use**: For truly reusable UI components across applications
+**When to use**: For ALL UI components - **ALWAYS use existing components from @workspace/ui**
 
-**Component Decision Framework**:
+**CRITICAL RULE**: **NEVER create custom HTML elements or components when @workspace/ui has an equivalent**
 
-1. **ALWAYS check @workspace/ui first** before creating any new component
-2. **Use existing components** from @workspace/ui whenever possible
-3. **App-specific components** should stay in the app if they contain:
+#### Available UI Components
+
+The following components are available in `@workspace/ui` and **MUST be used instead of creating custom alternatives**:
+
+##### Form Components
+```typescript
+// ✅ ALWAYS use these for forms
+import { 
+  Button,           // All button interactions
+  Input,            // Text inputs, email, password, etc.
+  Label,            // Form labels with required indicators
+  Checkbox,         // Checkboxes with labels
+  FormField,        // Complete field with label, input, and error
+} from "@workspace/ui/components";
+
+// ✅ Form field with validation
+<FormField
+  label="Email"
+  required
+  error={errors.email}
+  inputProps={{
+    type: "email",
+    value: formData.email,
+    onChange: handleChange,
+    placeholder: "user@example.com"
+  }}
+/>
+
+// ✅ Individual components
+<Label htmlFor="email" required>Email</Label>
+<Input 
+  id="email" 
+  type="email" 
+  error={!!errors.email}
+  value={email}
+  onChange={handleChange}
+/>
+<Checkbox 
+  checked={rememberMe}
+  onChange={handleChange}
+  label="Remember me"
+/>
+
+// ❌ NEVER do this - use FormField or Input instead
+<input type="email" className="border rounded px-3 py-2" />
+<label className="font-medium">Email</label>
+```
+
+##### Layout Components
+```typescript
+// ✅ ALWAYS use these for content layout
+import { 
+  Card,             // Content containers
+  CardHeader,       // Card headers
+  CardTitle,        // Card titles
+  CardDescription,  // Card descriptions
+  CardContent,      // Card body content
+  CardFooter,       // Card footers
+} from "@workspace/ui/components";
+
+// ✅ Structured card layout
+<Card>
+  <CardHeader>
+    <CardTitle>User Profile</CardTitle>
+    <CardDescription>Manage your account settings</CardDescription>
+  </CardHeader>
+  <CardContent>
+    {/* main content */}
+  </CardContent>
+  <CardFooter>
+    <Button>Save Changes</Button>
+  </CardFooter>
+</Card>
+
+// ❌ NEVER do this - use Card components instead
+<div className="border rounded-lg p-4">
+  <h3 className="font-semibold text-lg">Title</h3>
+  <div className="p-6">{/* content */}</div>
+</div>
+```
+
+##### Feedback Components
+```typescript
+// ✅ ALWAYS use these for user feedback
+import { 
+  Alert,            // Messages and notifications
+  AlertTitle,       // Alert titles
+  AlertDescription, // Alert content
+} from "@workspace/ui/components";
+
+// ✅ Error messages
+<Alert variant="destructive">
+  <AlertDescription>
+    Please fix the following errors before continuing.
+  </AlertDescription>
+</Alert>
+
+// ✅ Success messages
+<Alert variant="success">
+  <AlertTitle>Success!</AlertTitle>
+  <AlertDescription>Your changes have been saved.</AlertDescription>
+</Alert>
+
+// ❌ NEVER do this - use Alert components instead
+<div className="bg-red-50 border border-red-200 rounded p-4">
+  <p className="text-red-700">Error message</p>
+</div>
+```
+
+##### Modal Components
+```typescript
+// ✅ ALWAYS use these for modals and dialogs
+import { 
+  Dialog,           // Modal container
+  DialogHeader,     // Modal header
+  DialogTitle,      // Modal title
+  DialogContent,    // Modal body
+  DialogFooter,     // Modal footer
+  DialogClose,      // Close button
+} from "@workspace/ui/components";
+
+// ✅ Modal structure
+<Dialog open={showModal} onClose={setShowModal}>
+  <DialogHeader>
+    <DialogTitle>Confirm Action</DialogTitle>
+    <DialogClose onClose={() => setShowModal(false)} />
+  </DialogHeader>
+  <DialogContent>
+    <p>Are you sure you want to proceed?</p>
+  </DialogContent>
+  <DialogFooter>
+    <Button variant="outline" onClick={() => setShowModal(false)}>
+      Cancel
+    </Button>
+    <Button onClick={handleConfirm}>
+      Confirm
+    </Button>
+  </DialogFooter>
+</Dialog>
+
+// ❌ NEVER do this - use Dialog components instead
+<div className="fixed inset-0 bg-black bg-opacity-50">
+  <div className="bg-white rounded-lg p-6">
+    {/* modal content */}
+  </div>
+</div>
+```
+
+#### Component Usage Rules
+
+**MANDATORY RULES**:
+
+1. **ALWAYS import from @workspace/ui first** - Check available components before creating anything
+2. **NEVER create custom HTML elements** when UI components exist:
+   - ❌ `<button>` → ✅ `<Button>`
+   - ❌ `<input>` → ✅ `<Input>` or `<FormField>`
+   - ❌ `<div className="card">` → ✅ `<Card>`
+   - ❌ Custom modals → ✅ `<Dialog>`
+   - ❌ Custom alerts → ✅ `<Alert>`
+
+3. **Use component variants** instead of custom styling:
+```typescript
+// ✅ Use built-in variants
+<Button variant="destructive" size="sm">Delete</Button>
+<Alert variant="warning">Warning message</Alert>
+<Card variant="elevated">Content</Card>
+
+// ❌ Don't override with custom classes
+<Button className="bg-red-600 text-white">Delete</Button>
+```
+
+4. **Import the global CSS** in your app root:
+```typescript
+// ✅ Required in app layout
+import "@workspace/ui/globals.css";
+```
+
+#### Component Decision Framework
+
+**BEFORE creating ANY component**:
+
+1. ✅ **Check @workspace/ui components first** - Use existing if available
+2. ✅ **App-specific components** stay in the app ONLY if they contain:
    - Business logic specific to that app
    - App-specific data fetching
    - Highly customized behavior that won't be reused
-4. **Move to @workspace/ui** only if the component is:
+3. ✅ **Move to @workspace/ui** only if the component is:
    - Truly reusable across multiple apps
    - Contains no app-specific logic
    - Follows the design system patterns
    - Has generic, configurable props
 
+#### Complete Import Examples
+
 ```typescript
-// ✅ Import shared components first
-import { Button } from "@workspace/ui/components/button";
+// ✅ ALWAYS import UI components first
+import { 
+  // Form components
+  Button, Input, Label, Checkbox, FormField,
+  // Layout components  
+  Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter,
+  // Feedback components
+  Alert, AlertTitle, AlertDescription,
+  // Modal components
+  Dialog, DialogHeader, DialogTitle, DialogContent, DialogFooter, DialogClose,
+} from "@workspace/ui/components";
+
+// ✅ Import global styles
 import "@workspace/ui/globals.css";
 
-// ✅ Use consistent design system
-<Button variant="primary" size="lg">Click me</Button>
-
-// ✅ App-specific component (stays in app)
-// components/user-dashboard.tsx - contains app-specific business logic
-export function UserDashboard({ userId }: { userId: string }) {
-  const { user } = useAuth(); // app-specific auth logic
-  const { data } = useSWR(`/api/users/${userId}`); // app-specific API
-  return <div>{/* app-specific UI */}</div>;
+// ✅ Example usage in a form
+export function ContactForm() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Contact Us</CardTitle>
+        <CardDescription>Send us a message</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <FormField
+          label="Name"
+          required
+          inputProps={{
+            value: name,
+            onChange: (e) => setName(e.target.value),
+          }}
+        />
+        <FormField
+          label="Email"
+          required
+          error={errors.email}
+          inputProps={{
+            type: "email",
+            value: email,
+            onChange: (e) => setEmail(e.target.value),
+          }}
+        />
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+      </CardContent>
+      <CardFooter>
+        <Button type="submit" disabled={isLoading}>
+          {isLoading ? "Sending..." : "Send Message"}
+        </Button>
+      </CardFooter>
+    </Card>
+  );
 }
 
-// ✅ Reusable component (should be in @workspace/ui)
-// @workspace/ui/components/card.tsx - generic and reusable
-export function Card({ children, variant, className }: CardProps) {
-  return <div className={cardVariants({ variant, className })}>{children}</div>;
+// ❌ NEVER do this - recreating existing UI components
+export function CustomButton({ children, onClick }) {
+  return (
+    <button 
+      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+      onClick={onClick}
+    >
+      {children}
+    </button>
+  );
 }
-
-// ❌ Don't duplicate existing UI components
-// ❌ Don't move app-specific logic to @workspace/ui
-// ❌ Don't create new components without checking @workspace/ui first
 ```
 
 ## Next.js Best Practices
@@ -172,7 +731,6 @@ export default async function UsersPage() {
 
 // ✅ Client Component (when needed)
 "use client";
-import { useAuth } from "@workspace/auth/client";
 import { useState } from "react";
 
 export function InteractiveComponent() {
@@ -209,113 +767,42 @@ export function ClientDataComponent() {
 // ❌ Don't mix server and client data fetching unnecessarily
 ```
 
-## Better Auth Best Practices
+### @workspace/auth
 
-### Authentication Setup
+**When to use**: For all authentication-related functionality
+
+This package provides Clerk authentication integration with a clean, consistent API.
 
 ```typescript
-// ✅ Server configuration
-import { createBetterAuth } from "@workspace/auth/server";
-import { db } from "@workspace/db/connection";
+// ✅ Server-side auth
+import { auth, currentUser } from "@workspace/auth/server";
 
-export const auth = createBetterAuth(db);
-
-// ✅ Client configuration
-import { createBetterAuthClient } from "@workspace/auth/client";
-
-export const authClient = createBetterAuthClient({
-  baseURL: process.env.NEXT_PUBLIC_AUTH_URL,
-});
+// ✅ Client-side auth hooks and components
+import { useUser, SignedIn, SignedOut, UserButton } from "@workspace/auth/client";
+import { SignIn, SignUp } from "@workspace/auth/components";
 
 // ✅ Provider setup
-import { AuthProvider } from "@workspace/auth/components";
+import { AuthProvider } from "@workspace/auth/provider";
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
       <body>
-        <AuthProvider authClient={authClient}>
-          {children}
-        </AuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
 }
-```
 
-### Route Protection
+// ✅ Middleware setup
+import { authMiddleware } from "@workspace/auth/middleware";
 
-```typescript
-// ✅ Component-level protection
-import { Protected } from "@workspace/auth/components";
+export default authMiddleware({
+  publicRoutes: ["/", "/api/health"],
+});
 
-export default function DashboardPage() {
-  return (
-    <Protected>
-      <h1>Dashboard</h1>
-      {/* protected content */}
-    </Protected>
-  );
-}
-
-// ✅ Hook-based protection
-import { useIsAuthenticated } from "@workspace/auth/components";
-
-export function ConditionalContent() {
-  const { isAuthenticated, isLoading } = useIsAuthenticated();
-  
-  if (isLoading) return <div>Loading...</div>;
-  if (!isAuthenticated) return <div>Please sign in</div>;
-  
-  return <div>Protected content</div>;
-}
-
-// ✅ Server-side protection
-import { auth } from "@/lib/auth";
-import { redirect } from "next/navigation";
-
-export default async function ProtectedPage() {
-  const session = await auth.api.getSession();
-  if (!session) redirect("/sign-in");
-  
-  return <div>Protected server content</div>;
-}
-```
-
-### Authentication Forms
-
-```typescript
-// ✅ Use provided components
-import { SignInForm, SignUpForm } from "@workspace/auth/components";
-
-export default function SignInPage() {
-  return (
-    <SignInForm
-      onSuccess={() => router.push("/dashboard")}
-      onError={(error) => toast.error(error.message)}
-      className="max-w-md mx-auto"
-    />
-  );
-}
-
-// ✅ Custom forms with hooks
-import { useSignIn } from "@workspace/auth/client";
-
-export function CustomSignInForm() {
-  const { signIn, isLoading, error } = useSignIn(authClient);
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { error } = await signIn(email, password);
-    if (!error) router.push("/dashboard");
-  };
-  
-  return (
-    <form onSubmit={handleSubmit}>
-      {/* form fields */}
-    </form>
-  );
-}
+// ❌ Don't implement auth from scratch
+// ❌ Don't use multiple auth libraries simultaneously
 ```
 
 ## Database & Drizzle Best Practices
@@ -440,43 +927,35 @@ export default {
 
 ### Component Styling
 
+**CRITICAL**: **NEVER create custom styled components** - Always use `@workspace/ui` components
+
 ```typescript
-// ✅ Use Tailwind classes only
-export function Button({ variant = "primary", size = "md", children, ...props }) {
-  const baseClasses = "font-medium rounded-lg focus:outline-none focus:ring-2";
-  const variants = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500",
-    secondary: "bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500",
-  };
-  const sizes = {
-    sm: "px-3 py-1.5 text-sm",
-    md: "px-4 py-2 text-base",
-    lg: "px-6 py-3 text-lg",
-  };
+// ✅ ALWAYS use existing @workspace/ui components
+import { Button, Card } from "@workspace/ui/components";
 
-  return (
-    <button
-      className={`${baseClasses} ${variants[variant]} ${sizes[size]}`}
-      {...props}
-    >
-      {children}
-    </button>
-  );
-}
+// ✅ Use built-in variants and props
+<Button variant="primary" size="lg">Primary Action</Button>
+<Button variant="secondary" size="sm">Secondary Action</Button>
+<Button variant="destructive">Delete</Button>
 
-// ✅ Use clsx/cn for conditional classes
-import { clsx } from "clsx";
+<Card variant="elevated" className="max-w-md">
+  <CardContent>Content here</CardContent>
+</Card>
 
-export function Card({ variant, isActive, className, children }) {
+// ✅ Extend with additional Tailwind classes if needed
+<Button variant="primary" className="w-full mt-4">
+  Full Width Button
+</Button>
+
+// ✅ Use clsx/cn for conditional styling on containers only
+import { cn } from "@workspace/ui/lib/utils";
+
+export function AppSpecificContainer({ isActive, className, children }) {
   return (
     <div
-      className={clsx(
-        "rounded-lg border p-4", // base styles
-        {
-          "border-blue-500 bg-blue-50": variant === "primary",
-          "border-gray-200 bg-white": variant === "secondary",
-          "ring-2 ring-blue-500": isActive,
-        },
+      className={cn(
+        "container mx-auto", // base layout classes
+        isActive && "border-primary", // conditional styling
         className
       )}
     >
@@ -485,9 +964,68 @@ export function Card({ variant, isActive, className, children }) {
   );
 }
 
+// ❌ NEVER create custom Button components - use @workspace/ui Button
+export function CustomButton({ variant = "primary", size = "md", children, ...props }) {
+  const baseClasses = "font-medium rounded-lg focus:outline-none focus:ring-2";
+  // ... DON'T DO THIS
+}
+
+// ❌ NEVER create custom Card components - use @workspace/ui Card
+export function CustomCard({ variant, isActive, className, children }) {
+  return (
+    <div className={clsx("rounded-lg border p-4", /* ... */)}>
+      {children}
+    </div>
+  );
+}
+
 // ❌ NEVER use CSS-in-JS libraries
 // ❌ Don't use styled-components, emotion, or similar
 // ❌ Don't use tailwind-variants or other CSS-in-JS solutions
+// ❌ Don't recreate components that exist in @workspace/ui
+```
+
+### When to Create Custom Components
+
+**ONLY create custom components for**:
+
+1. **App-specific business logic containers**:
+```typescript
+// ✅ This contains app-specific logic, not UI styling
+export function UserDashboard({ userId }: { userId: string }) {
+  const { user } = useAuth(); // app-specific logic
+  const { data } = useSWR(`/api/users/${userId}`); // app-specific data
+  
+  return (
+    <Card> {/* Use UI component for styling */}
+      <CardHeader>
+        <CardTitle>Welcome, {user?.name}</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* App-specific content */}
+        <UserStats data={data} />
+        <RecentActivity userId={userId} />
+      </CardContent>
+    </Card>
+  );
+}
+```
+
+2. **Layout containers with no styling logic**:
+```typescript
+// ✅ Pure layout logic, uses UI components for actual styling
+export function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-background">
+      <header className="border-b">
+        <AuthNav /> {/* Uses UI components internally */}
+      </header>
+      <main className="container mx-auto py-6">
+        {children}
+      </main>
+    </div>
+  );
+}
 ```
 
 ### Responsive Design
@@ -784,19 +1322,19 @@ export async function POST(request: NextRequest) {
 ```typescript
 // ✅ Test utilities and hooks
 import { renderHook, act } from "@testing-library/react";
-import { useAuth } from "@workspace/auth/client";
 
-describe("useAuth", () => {
-  it("should return authentication state", async () => {
-    const { result } = renderHook(() => useAuth(mockAuthClient));
+// Example test for custom hooks
+describe("useCustomHook", () => {
+  it("should return expected state", async () => {
+    const { result } = renderHook(() => useCustomHook());
     
     expect(result.current.isLoading).toBe(true);
     
     await act(async () => {
-      // Wait for auth to resolve
+      // Wait for async operations
     });
     
-    expect(result.current.isAuthenticated).toBe(false);
+    expect(result.current.data).toBeDefined();
   });
 });
 ```
@@ -846,7 +1384,7 @@ pnpm --filter @workspace/db migrate   # Run migrations
 pnpm --filter @workspace/db studio    # Open Drizzle Studio
 
 # Package-specific
-pnpm --filter @workspace/auth build   # Build auth package
+pnpm --filter @workspace/db build     # Build db package
 pnpm --filter web dev                 # Start web app only
 ```
 
@@ -870,6 +1408,41 @@ refactor/ui-button-api
 ### ❌ Don't Do These
 
 ```typescript
+// ❌ NEVER create custom UI components when @workspace/ui has them
+// DON'T create buttons
+export function CustomButton({ children, onClick }) {
+  return <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={onClick}>{children}</button>;
+}
+
+// DON'T create inputs
+export function CustomInput({ value, onChange }) {
+  return <input className="border rounded px-3 py-2" value={value} onChange={onChange} />;
+}
+
+// DON'T create cards
+export function CustomCard({ children }) {
+  return <div className="border rounded-lg p-4 shadow">{children}</div>;
+}
+
+// DON'T create modals
+export function CustomModal({ isOpen, onClose, children }) {
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg p-6">{children}</div>
+    </div>
+  );
+}
+
+// DON'T create alerts
+export function CustomAlert({ message, type }) {
+  return <div className={`p-4 rounded ${type === 'error' ? 'bg-red-100' : 'bg-blue-100'}`}>{message}</div>;
+}
+
+// ❌ Don't use raw HTML elements when UI components exist
+<button onClick={handleClick}>Click me</button>           // Use <Button>
+<input type="email" value={email} onChange={setEmail} />  // Use <Input> or <FormField>
+<div className="border rounded p-4">Content</div>         // Use <Card>
+
 // ❌ Don't bypass the auth package
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -904,30 +1477,60 @@ function processData(data: any): any {
   return data.whatever;
 }
 
-// ❌ Don't mix authentication methods
-import NextAuth from "next-auth";
-import { auth } from "@workspace/auth/server"; // Pick one!
-
-// ❌ Don't create duplicate UI components
-// If @workspace/ui has Button, don't create another Button
+// ❌ Don't implement multiple auth systems simultaneously
+// Choose one authentication solution and stick with it
 ```
 
 ### ✅ Do These Instead
 
 ```typescript
-// ✅ Use the auth package
-import { useAuth, SignInForm } from "@workspace/auth/components";
-import { createBetterAuth } from "@workspace/auth/server";
+// ✅ ALWAYS use @workspace/ui components
+import { 
+  Button, Input, FormField, Card, CardHeader, CardTitle, CardContent,
+  Alert, AlertDescription, Dialog, DialogContent, Checkbox, Label
+} from "@workspace/ui/components";
+
+// ✅ Use UI components for all interactions
+<Button variant="primary" onClick={handleClick}>Click me</Button>
+<Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+<FormField label="Email" required inputProps={{ type: "email", value: email, onChange: handleChange }} />
+
+// ✅ Use Card for content containers
+<Card>
+  <CardHeader>
+    <CardTitle>User Profile</CardTitle>
+  </CardHeader>
+  <CardContent>
+    <p>User information here</p>
+  </CardContent>
+</Card>
+
+// ✅ Use Alert for messages
+<Alert variant="destructive">
+  <AlertDescription>An error occurred</AlertDescription>
+</Alert>
+
+// ✅ Use Dialog for modals
+<Dialog open={isOpen} onClose={setIsOpen}>
+  <DialogContent>
+    <p>Modal content</p>
+  </DialogContent>
+</Dialog>
+
+// ✅ Use the auth package with @workspace/ui components
+import { useUser, SignedIn, SignedOut } from "@workspace/auth/client";
+import { AuthProvider } from "@workspace/auth/provider";
 
 // ✅ Use the database package
 import { db } from "@workspace/db/connection";
 import { users } from "@workspace/db/schema";
 
-// ✅ Use Tailwind classes only
-<div className="p-4 bg-gray-100">
+// ✅ Use Tailwind classes for layout only (not component styling)
+<div className="container mx-auto p-4 bg-background">
 
-// ✅ Use clsx for conditional classes
-<div className={clsx("p-4", isActive && "bg-blue-100", className)}>
+// ✅ Use cn/clsx for conditional layout classes only
+import { cn } from "@workspace/ui/lib/utils";
+<div className={cn("container mx-auto", isActive && "border-primary", className)}>
 
 // ✅ Handle TypeScript errors properly
 const user = getData()?.user?.profile?.name ?? "Unknown";
@@ -942,12 +1545,24 @@ function processData(data: UserData): ProcessedData {
 
 Before submitting code, ensure:
 
+**UI Components (CRITICAL)**:
+- [ ] **NEVER created custom buttons, inputs, cards, modals, or alerts** - Always use @workspace/ui
+- [ ] **All interactive elements use @workspace/ui components**: Button, Input, FormField, etc.
+- [ ] **All layout containers use @workspace/ui components**: Card, Dialog, Alert, etc.
+- [ ] **Imported @workspace/ui/globals.css** in app root
+- [ ] **Used component variants** instead of custom styling (variant="primary", size="lg", etc.)
+- [ ] **Checked @workspace/ui components first** before creating any UI element
+
+**Package Usage**:
 - [ ] Uses appropriate workspace packages (@workspace/auth, @workspace/db, @workspace/ui)
-- [ ] Follows Next.js App Router conventions
-- [ ] Uses Better Auth for authentication (references @llms.txt)
+- [ ] Uses Clerk for authentication via @workspace/auth
 - [ ] Uses Drizzle ORM for database operations
-- [ ] Uses Tailwind CSS classes ONLY (no CSS-in-JS, no traditional CSS)
-- [ ] Checks @workspace/ui before creating new components
+- [ ] **Never bypassed @workspace/ui** for UI components
+
+**Code Quality**:
+- [ ] Follows Next.js App Router conventions
+- [ ] Uses Tailwind CSS classes ONLY for layout (no CSS-in-JS, no traditional CSS)
+- [ ] **No custom styled components** - only @workspace/ui components
 - [ ] Has proper TypeScript types
 - [ ] Includes error handling
 - [ ] Follows security best practices
@@ -955,4 +1570,10 @@ Before submitting code, ensure:
 - [ ] Passes Biome linting and formatting
 - [ ] Uses semantic commit messages
 
-Remember: Always prefer using the workspace packages over implementing functionality from scratch. They provide tested, consistent APIs that integrate well with the overall architecture.
+**REMEMBER**: 
+1. **@workspace/ui components are MANDATORY** - Never create custom UI elements
+2. **Check @workspace/ui first** - It has Button, Input, Card, Dialog, Alert, FormField, Checkbox, Label, and more
+3. **Use variants and props** - Don't override with custom Tailwind classes
+4. **Layout vs Components** - Use Tailwind for layout containers, @workspace/ui for interactive elements
+
+Always prefer using the workspace packages over implementing functionality from scratch. They provide tested, consistent APIs that integrate well with the overall architecture.

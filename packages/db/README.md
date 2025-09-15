@@ -11,6 +11,7 @@ A TypeScript database package for the mucaro-stack monorepo using Drizzle ORM an
 - 📊 **Database studio** for visual data management
 - 🛡️ **Error handling** with custom error types
 - ✅ **Validation** with Zod schemas
+- 🆔 **Auto-generated UUIDs** - All user records get unique IDs automatically
 
 ## Installation
 
@@ -43,21 +44,22 @@ DB_SSL="false"
 ### 2. Basic Usage
 
 ```typescript
-import { createDatabase, validateEnvConfig } from '@workspace/db/connection';
-import { users } from '@workspace/db/schema';
+import { createDatabase, validateEnvConfig, createUserOperations } from '@workspace/db';
 
 // Create database connection
 const config = validateEnvConfig(process.env);
 const db = createDatabase(config);
 
-// Query users
-const allUsers = await db.select().from(users);
+// Create user operations (handles UUID generation automatically)
+const userOps = createUserOperations(db);
 
-// Insert a new user
-const newUser = await db.insert(users).values({
-  email: 'user@example.com',
-  name: 'John Doe',
-}).returning();
+// Create a user - ID will be auto-generated as UUID
+const newUser = await userOps.createUser({
+  email: "user@example.com",
+  name: "John Doe"
+});
+
+console.log(newUser.id); // Auto-generated UUID like "123e4567-e89b-12d3-a456-426614174000"
 ```
 
 ### 3. Singleton Pattern (for single-database apps)

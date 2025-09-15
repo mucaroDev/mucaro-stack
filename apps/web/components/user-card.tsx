@@ -2,6 +2,7 @@
 
 import type { User } from "@workspace/db/schema";
 import { Button } from "@workspace/ui/components/button";
+import { Card, CardContent } from "@workspace/ui/components/card";
 import { Edit, Mail, Trash2, User as UserIcon } from "lucide-react";
 import { useState } from "react";
 
@@ -36,58 +37,59 @@ export function UserCard({
 	};
 
 	return (
-		<div className="rounded-lg border p-4 transition-shadow hover:shadow-md">
-			<div className="flex items-start justify-between">
-				<div className="flex items-start gap-3">
-					{user.avatarUrl ? (
-						<img
-							alt={`${user.name || user.email}'s avatar`}
-							className="size-12 rounded-full object-cover"
-							src={user.avatarUrl}
-						/>
-					) : (
-						<div className="flex size-12 items-center justify-center rounded-full bg-gray-200">
-							<UserIcon className="size-6 text-gray-500" />
-						</div>
-					)}
-					<div className="flex-1">
-						<h3 className="font-semibold text-lg">
-							{user.name || "Unnamed User"}
-						</h3>
-						<div className="flex items-center gap-1 text-gray-600">
-							<Mail className="size-4" />
-							<span className="text-sm">{user.email}</span>
-						</div>
-						{user.emailVerified && (
-							<span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-1 text-green-700 text-xs">
-								Verified
-							</span>
+		<Card className="transition-shadow hover:shadow-md">
+			<CardContent className="p-4">
+				<div className="flex items-start justify-between">
+					<div className="flex items-start gap-3">
+						{user.avatarUrl ? (
+							<img
+								alt={`${user.name || user.email}'s avatar`}
+								className="size-12 rounded-full object-cover"
+								src={user.avatarUrl}
+							/>
+						) : (
+							<div className="flex size-12 items-center justify-center rounded-full bg-gray-200">
+								<UserIcon className="size-6 text-gray-500" />
+							</div>
 						)}
+						<div className="flex-1">
+							<h3 className="font-semibold text-lg">
+								{user.name || "Unnamed User"}
+							</h3>
+							<div className="flex items-center gap-1 text-gray-600">
+								<Mail className="size-4" />
+								<span className="text-sm">{user.email}</span>
+							</div>
+							{user.emailVerified && (
+								<span className="mt-1 inline-block rounded-full bg-green-100 px-2 py-1 text-green-700 text-xs">
+									Verified
+								</span>
+							)}
+						</div>
+					</div>
+
+					<div className="flex gap-2">
+						<Button
+							disabled={isDeleting}
+							onClick={() => onEdit(user)}
+							size="sm"
+							variant="outline"
+						>
+							<Edit className="size-4" />
+						</Button>
+						<Button
+							className="hover:bg-red-50 hover:text-red-600"
+							disabled={isDeleting}
+							onClick={() => setShowDeleteConfirm(true)}
+							size="sm"
+							variant="outline"
+						>
+							<Trash2 className="size-4" />
+						</Button>
 					</div>
 				</div>
 
-				<div className="flex gap-2">
-					<Button
-						disabled={isDeleting}
-						onClick={() => onEdit(user)}
-						size="sm"
-						variant="outline"
-					>
-						<Edit className="size-4" />
-					</Button>
-					<Button
-						className="hover:bg-red-50 hover:text-red-600"
-						disabled={isDeleting}
-						onClick={() => setShowDeleteConfirm(true)}
-						size="sm"
-						variant="outline"
-					>
-						<Trash2 className="size-4" />
-					</Button>
-				</div>
-			</div>
-
-			<div className="mt-3 text-gray-500 text-xs">
+				<div className="mt-3 text-gray-500 text-xs">
 				<div>Created: {formatDate(user.createdAt)}</div>
 				<div>Updated: {formatDate(user.updatedAt)}</div>
 				<div className="mt-1 inline-block rounded bg-gray-100 px-2 py-1 font-mono text-xs">
@@ -131,6 +133,7 @@ export function UserCard({
 					</div>
 				</div>
 			)}
-		</div>
+			</CardContent>
+		</Card>
 	);
 }

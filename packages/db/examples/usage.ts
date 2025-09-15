@@ -5,11 +5,12 @@
 
 import {
 	createDatabase,
+	createUserOperations,
 	healthCheck,
 	runMigrations,
+	users,
 	validateEnvConfig,
-} from "../src/connection.js";
-import { insertUserSchema, users } from "../src/schema/users.js";
+} from "../src/index.js";
 
 /**
  * Example: Basic database setup and usage
@@ -30,27 +31,27 @@ async function basicExample() {
 		throw new Error("Database is not healthy");
 	}
 
-	// Insert a new user with validation
-	const userData = insertUserSchema.parse({
+	// Create user operations instance
+	const userOps = createUserOperations(db);
+
+	// Create a new user - ID will be auto-generated as UUID
+	const newUser = await userOps.createUser({
 		email: "john@example.com",
 		name: "John Doe",
 	});
-
-	const newUser = await db.insert(users).values(userData).returning();
-	console.log("Created user:", newUser[0]);
+	console.log("Created user with auto-generated UUID:", newUser);
 
 	// Query users
 	const allUsers = await db.select().from(users);
 	console.log("All users:", allUsers);
 
-	// Update a user
-	const updatedUser = await db
-		.update(users)
-		.set({ name: "John Smith" })
-		.where(users.id.eq(newUser[0].id))
-		.returning();
+	// Update a user using operations
+	const updatedUser = await userOps.updateUser(newUser.id, { name: "John Smith" });
+	console.log("Updated user:", updatedUser);
 
-	console.log("Updated user:", updatedUser[0]);
+	// Get user by email
+	const userByEmail = await userOps.getUserByEmail("john@example.com");
+	console.log("User by email:", userByEmail);
 }
 
 /**

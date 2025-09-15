@@ -5,15 +5,22 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1757655913799,
-      "tag": "0000_lethal_secret_warriors",
+      "when": 1757745716380,
+      "tag": "0000_chief_talos",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1757660575470,
-      "tag": "0001_quick_stark_industries",
+      "when": 1757793700856,
+      "tag": "0001_breezy_scarecrow",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1757794800000,
+      "tag": "0002_add_clerk_integration",
       "breakpoints": true
     }
   ]

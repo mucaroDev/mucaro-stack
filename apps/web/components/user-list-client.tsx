@@ -1,7 +1,14 @@
 "use client";
 
 import type { User } from "@workspace/db/schema";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { Button } from "@workspace/ui/components/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogHeader,
+	DialogTitle,
+} from "@workspace/ui/components/dialog";
 import { Plus, RefreshCw, Users } from "lucide-react";
 import { useOptimistic, useState, useTransition } from "react";
 import { createUser, deleteUser, updateUser } from "../lib/actions";
@@ -187,27 +194,29 @@ export function UserListClient({ initialUsers }: UserListClientProps) {
 
 			{/* Error Display */}
 			{error && (
-				<div className="rounded-lg bg-red-50 p-4 text-red-700">
-					<strong>Error:</strong> {error}
-				</div>
+				<Alert variant="destructive">
+					<AlertDescription>
+						<strong>Error:</strong> {error}
+					</AlertDescription>
+				</Alert>
 			)}
 
 			{/* Form Modal */}
-			{showForm && (
-				<div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-					<div className="mx-4 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg bg-white p-6">
-						<h3 className="mb-4 font-semibold text-lg">
-							{editingUser ? "Edit User" : "Create New User"}
-						</h3>
-						<UserFormClient
-							isLoading={isPending}
-							onCancel={handleCancelForm}
-							onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
-							user={editingUser || undefined}
-						/>
-					</div>
-				</div>
-			)}
+			<Dialog open={showForm} onClose={handleCancelForm}>
+				<DialogHeader>
+					<DialogTitle>
+						{editingUser ? "Edit User" : "Create New User"}
+					</DialogTitle>
+				</DialogHeader>
+				<DialogContent>
+					<UserFormClient
+						isLoading={isPending}
+						onCancel={handleCancelForm}
+						onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
+						user={editingUser || undefined}
+					/>
+				</DialogContent>
+			</Dialog>
 
 			{/* Users List */}
 			{users.length === 0 ? (

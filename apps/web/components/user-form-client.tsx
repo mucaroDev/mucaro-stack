@@ -1,7 +1,10 @@
 "use client";
 
 import type { User } from "@workspace/db/schema";
+import { Alert, AlertDescription } from "@workspace/ui/components/alert";
 import { Button } from "@workspace/ui/components/button";
+import { Input } from "@workspace/ui/components/input";
+import { Label } from "@workspace/ui/components/label";
 import { useState } from "react";
 
 // Email validation regex at top level
@@ -73,13 +76,11 @@ export function UserFormClient({
 	return (
 		<form className="space-y-4" onSubmit={handleSubmit}>
 			{/* Name Field */}
-			<div>
-				<label className="block font-medium text-sm" htmlFor="name">
-					Name (Optional)
-				</label>
-				<input
-					className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+			<div className="space-y-2">
+				<Label htmlFor="name">Name (Optional)</Label>
+				<Input
 					disabled={isLoading}
+					error={!!errors.name}
 					id="name"
 					onChange={(e) => handleChange("name", e.target.value)}
 					placeholder="Enter user's name"
@@ -87,18 +88,16 @@ export function UserFormClient({
 					value={formData.name}
 				/>
 				{errors.name && (
-					<p className="mt-1 text-red-600 text-sm">{errors.name}</p>
+					<p className="text-sm text-destructive">{errors.name}</p>
 				)}
 			</div>
 
 			{/* Email Field */}
-			<div>
-				<label className="block font-medium text-sm" htmlFor="email">
-					Email <span className="text-red-500">*</span>
-				</label>
-				<input
-					className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+			<div className="space-y-2">
+				<Label htmlFor="email" required>Email</Label>
+				<Input
 					disabled={isLoading}
+					error={!!errors.email}
 					id="email"
 					onChange={(e) => handleChange("email", e.target.value)}
 					placeholder="user@example.com"
@@ -107,18 +106,16 @@ export function UserFormClient({
 					value={formData.email}
 				/>
 				{errors.email && (
-					<p className="mt-1 text-red-600 text-sm">{errors.email}</p>
+					<p className="text-sm text-destructive">{errors.email}</p>
 				)}
 			</div>
 
 			{/* Avatar URL Field */}
-			<div>
-				<label className="block font-medium text-sm" htmlFor="avatarUrl">
-					Avatar URL (Optional)
-				</label>
-				<input
-					className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+			<div className="space-y-2">
+				<Label htmlFor="avatarUrl">Avatar URL (Optional)</Label>
+				<Input
 					disabled={isLoading}
+					error={!!errors.avatarUrl}
 					id="avatarUrl"
 					onChange={(e) => handleChange("avatarUrl", e.target.value)}
 					placeholder="https://example.com/avatar.jpg"
@@ -126,15 +123,15 @@ export function UserFormClient({
 					value={formData.avatarUrl}
 				/>
 				{errors.avatarUrl && (
-					<p className="mt-1 text-red-600 text-sm">{errors.avatarUrl}</p>
+					<p className="text-sm text-destructive">{errors.avatarUrl}</p>
 				)}
 			</div>
 
 			{/* Submit Error */}
 			{errors.submit && (
-				<div className="rounded-md bg-red-50 p-3 text-red-700 text-sm">
-					{errors.submit}
-				</div>
+				<Alert variant="destructive">
+					<AlertDescription>{errors.submit}</AlertDescription>
+				</Alert>
 			)}
 
 			{/* Action Buttons */}
