@@ -3,6 +3,10 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
+    "setup": "pnpm install && pnpm db:setup && echo '\n✅ Setup complete! Starting dev server...\n' && pnpm dev",
+    "db:setup": "pnpm --filter @workspace/db setup",
+    "db:migrate": "pnpm --filter @workspace/db migrate",
+    "db:studio": "pnpm --filter @workspace/db studio",
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",

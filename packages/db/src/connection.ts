@@ -231,10 +231,32 @@ export function validateEnvConfig(
 
 /**
  * Get the default database instance with environment configuration
+ * Lazily initialized on first access
  */
 export function getDefaultDatabase(): Database {
 	return getSingletonDatabase(validateEnvConfig(process.env));
 }
 
-// Export the default database instance
-export const db = getDefaultDatabase();
+/**
+ * Default database instance (lazy-loaded singleton)
+ * Only initializes when accessed, allowing env vars to be loaded first
+ */
+let _defaultDb: Database | null = null;
+
+/**
+ * Get the default database instance
+ * This is a getter that lazily initializes the database on first access
+ */
+export function getDb(): Database {
+	if (!_defaultDb) {
+		_defaultDb = getDefaultDatabase();
+	}
+	return _defaultDb;
+}
+
+// Re-export as 'db' for convenience, but use the getter
+export const db = new Proxy({} as Database, {
+	get(_target, prop) {
+		return getDb()[prop as keyof Database];
+	},
+});

@@ -58,13 +58,6 @@ export async function runMigrations(
 		const alternativePath = join(packageRoot, "drizzle", "migrations");
 		if (existsSync(alternativePath)) {
 			defaultMigrationsPath = alternativePath;
-		} else {
-			// Try absolute path based on known structure
-			const knownPath =
-				"/Users/mucaro/Development/Projects/mucaro-stack/packages/db/drizzle/migrations";
-			if (existsSync(knownPath)) {
-				defaultMigrationsPath = knownPath;
-			}
 		}
 	}
 	const { migrationsFolder = defaultMigrationsPath, verbose = true } = options;

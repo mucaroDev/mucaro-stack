@@ -9,9 +9,9 @@
     "lint": "ultracite check",
     "format": "biome format --write .",
     "generate": "drizzle-kit generate",
-    "migrate": "drizzle-kit migrate",
-    "studio": "drizzle-kit studio",
-    "db:init": "tsx scripts/init-db.ts"
+    "migrate": "tsx scripts/migrate.ts",
+    "setup": "tsx scripts/setup.ts",
+    "studio": "drizzle-kit studio"
   },
   "dependencies": {
     "drizzle-orm": "^0.36.0",
@@ -23,6 +23,7 @@
     "@types/node": "^20.19.9",
     "@types/pg": "^8.11.12",
     "@workspace/typescript-config": "workspace:*",
+    "dotenv": "^16.4.5",
     "drizzle-kit": "^0.28.1",
     "tsx": "^4.19.2",
     "typescript": "^5.9.2"

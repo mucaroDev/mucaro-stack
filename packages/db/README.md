@@ -44,22 +44,19 @@ DB_SSL="false"
 ### 2. Basic Usage
 
 ```typescript
-import { createDatabase, validateEnvConfig, createUserOperations } from '@workspace/db';
+import { db, users, createSimpleTodoOperations } from '@workspace/db';
 
-// Create database connection
+// Use the default database instance (reads from env)
+const allUsers = await db.select().from(users);
+
+// Or create your own database connection
+import { createDatabase, validateEnvConfig } from '@workspace/db';
 const config = validateEnvConfig(process.env);
-const db = createDatabase(config);
+const customDb = createDatabase(config);
 
-// Create user operations (handles UUID generation automatically)
-const userOps = createUserOperations(db);
-
-// Create a user - ID will be auto-generated as UUID
-const newUser = await userOps.createUser({
-  email: "user@example.com",
-  name: "John Doe"
-});
-
-console.log(newUser.id); // Auto-generated UUID like "123e4567-e89b-12d3-a456-426614174000"
+// Use built-in operations for common tasks
+const todoOps = createSimpleTodoOperations(db);
+const userTodos = await todoOps.getTodos(userId);
 ```
 
 ### 3. Singleton Pattern (for single-database apps)
@@ -285,62 +282,58 @@ if (!isHealthy) {
 - Implement proper retry logic for connection errors
 - Log database errors with appropriate context
 
-## Database Initialization
+## Database Setup
 
-### Quick Setup
+### Fresh Setup (with confirmation for existing databases)
 
-Initialize a new PostgreSQL database with the default name "mucaro":
+Create a fresh database from your environment configuration:
 
 ```bash
 # From the db package directory
-pnpm db:init
+pnpm setup
 
 # Or from the root
-pnpm --filter @workspace/db db:init
+pnpm --filter @workspace/db setup
 ```
 
-### Custom Database Name
+**What it does:**
+1. 📄 Loads environment from `.env` or `.env.local`
+2. 🔍 Checks if database exists
+3. ⚠️  If exists: asks for confirmation before dropping
+4. 📦 Creates fresh database
+5. 🔄 Runs all migrations
+
+### Run Migrations Only
+
+Apply pending migrations (auto-creates DB if missing):
 
 ```bash
-# Initialize with custom name
-pnpm db:init myapp
+# From the db package directory
+pnpm migrate
 
-# Or using the --name flag
-pnpm db:init --name production
+# Or from the root
+pnpm --filter @workspace/db migrate
 ```
 
-### What the initialization does:
-
-1. ✅ Checks if the database already exists (exits if it does)
-2. 📦 Creates the database if it doesn't exist
-3. 🔄 Runs all pending migrations
-4. ✅ Verifies setup with a health check
-
-### Environment Variables for Initialization
-
-```env
-# Connection details (will use defaults if not provided)
-DB_HOST=localhost          # Default: localhost
-DB_PORT=5432              # Default: 5432
-DB_USER=myuser            # Default: current system user
-DB_PASSWORD=mypassword    # Optional
-DB_SSL=false              # Default: false
-
-# Or use a full connection string
-DATABASE_URL=postgresql://user:password@localhost:5432/existing_db
-```
-
-### Help
-
-```bash
-pnpm db:init --help
-```
+**What it does:**
+1. 📄 Loads environment from `.env` or `.env.local`
+2. 📦 Creates database if it doesn't exist
+3. 🔄 Runs pending migrations
 
 ## Development Scripts
 
 ```bash
-# Initialize database
-pnpm db:init
+# Setup database (fresh start with confirmation)
+pnpm setup
+
+# Run migrations (auto-creates DB)
+pnpm migrate
+
+# Generate new migration files
+pnpm generate
+
+# Open database studio
+pnpm studio
 
 # Build the package
 pnpm build
@@ -350,15 +343,6 @@ pnpm dev
 
 # Lint code
 pnpm lint
-
-# Generate migrations
-pnpm generate
-
-# Run migrations
-pnpm migrate
-
-# Open database studio
-pnpm studio
 ```
 
 ## TypeScript Support
