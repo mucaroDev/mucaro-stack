@@ -1,8 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": [
-    "ultracite"
-  ],
+  "extends": ["ultracite"],
   "vcs": {
     "enabled": false,
     "clientKind": "git",
@@ -18,13 +16,14 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "recommended": true
+      "recommended": true,
+      "a11y": {
+        "noUnknownPseudoClass": "off"
+      }
     }
   },
   "javascript": {
-    "globals": [
-      "Liveblocks"
-    ],
+    "globals": ["Liveblocks"],
     "formatter": {
       "quoteStyle": "double"
     }

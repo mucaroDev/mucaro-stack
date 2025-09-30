@@ -1,0 +1,34 @@
+/* globals.css */
+:root {
+	view-transition-name: root;
+}
+html.dark {
+	color-scheme: dark;
+}
+/* make sure your light/dark colors come from CSS variables */
+:root {
+	--bg: white;
+	--fg: black;
+}
+html.dark {
+	--bg: #0b0b10;
+	--fg: #f6f7fb;
+}
+body {
+	background: var(--bg);
+	color: var(--fg);
+}
+
+/* prevent default crossfade so our clip-path is in full control */
+::view-transition-old(root),
+::view-transition-new(root) {
+	animation: none;
+}
+
+/* accessibility: respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+	::view-transition-old(root),
+	::view-transition-new(root) {
+		animation: none;
+	}
+}

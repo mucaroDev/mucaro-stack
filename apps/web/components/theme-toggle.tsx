@@ -3,30 +3,62 @@
 import { Button } from "@workspace/ui/components";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+
+type ViewTransition = {
+	ready: Promise<void>;
+};
+
+type DocumentWithViewTransition = Document & {
+	startViewTransition(callback: () => void): ViewTransition;
+};
 
 export function ThemeToggle() {
 	const { theme, setTheme } = useTheme();
-	const [mounted, setMounted] = useState(false);
 
-	// useEffect only runs on the client, so now we can safely show the UI
-	useEffect(() => {
-		setMounted(true);
-	}, []);
+	function onClick(e: React.MouseEvent<HTMLButtonElement>) {
+		const x = e.clientX;
+		const y = e.clientY;
 
-	if (!mounted) {
-		return (
-			<Button className="h-9 w-9" size="icon" variant="ghost">
-				<div className="h-4 w-4" />
-			</Button>
+		const switchTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+
+		// Fallback: no animation
+		if (!("startViewTransition" in document)) {
+			switchTheme();
+			return;
+		}
+
+		const vt = (document as DocumentWithViewTransition).startViewTransition(
+			() => {
+				switchTheme();
+			}
 		);
+
+		vt.ready.then(() => {
+			const endRadius = Math.hypot(
+				Math.max(x, window.innerWidth - x),
+				Math.max(y, window.innerHeight - y)
+			);
+
+			// Animate the reveal on the NEW snapshot
+			document.documentElement.animate(
+				[
+					{ clipPath: `circle(0px at ${x}px ${y}px)` },
+					{ clipPath: `circle(${endRadius}px at ${x}px ${y}px)` },
+				],
+				{
+					duration: 500,
+					easing: "cubic-bezier(.2,.8,.2,1)",
+					pseudoElement: "::view-transition-new(root)",
+				}
+			);
+		});
 	}
 
 	return (
 		<Button
 			aria-label="Toggle theme"
 			className="h-9 w-9"
-			onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+			onClick={onClick}
 			size="icon"
 			variant="ghost"
 		>

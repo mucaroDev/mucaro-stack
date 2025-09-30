@@ -1,6 +1,7 @@
 import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 
 import "@workspace/ui/globals.css";
+import "./styles.css";
 import NavBar from "@/components/nav-bar";
 import { Providers } from "@/components/providers";
 
