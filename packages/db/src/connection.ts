@@ -1,13 +1,7 @@
 import type { NodePgDatabase } from "drizzle-orm/node-postgres";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool, type PoolConfig } from "pg";
-import { users } from "./schema/users";
-
-/**
- * Schema object for type inference
- * Add new schemas here as you create them
- */
-const schema = { users } as const;
+import * as schema from "./schema";
 
 /**
  * Configuration options for database connection
@@ -52,7 +46,7 @@ let pool: Pool | null = null;
 /**
  * Database instance
  */
-let db: Database | null = null;
+let dbInstance: Database | null = null;
 
 /**
  * Default connection timeout in milliseconds
@@ -130,7 +124,7 @@ export function createDatabase(config: DatabaseConfig): Database {
  * ```
  */
 export function getSingletonDatabase(config?: DatabaseConfig): Database {
-	if (!db) {
+	if (!dbInstance) {
 		if (!config) {
 			throw new Error(
 				"Database configuration is required for first initialization"
@@ -145,13 +139,13 @@ export function getSingletonDatabase(config?: DatabaseConfig): Database {
 			...config,
 		});
 
-		db = drizzle({
+		dbInstance = drizzle({
 			client: pool,
 			schema,
 		});
 	}
 
-	return db;
+	return dbInstance;
 }
 
 /**
@@ -162,7 +156,7 @@ export async function closeSingletonDatabase(): Promise<void> {
 	if (pool) {
 		await pool.end();
 		pool = null;
-		db = null;
+		dbInstance = null;
 	}
 }
 
@@ -234,3 +228,13 @@ export function validateEnvConfig(
 		ssl: DB_SSL === "true" ? { rejectUnauthorized: false } : false,
 	};
 }
+
+/**
+ * Get the default database instance with environment configuration
+ */
+export function getDefaultDatabase(): Database {
+	return getSingletonDatabase(validateEnvConfig(process.env));
+}
+
+// Export the default database instance
+export const db = getDefaultDatabase();

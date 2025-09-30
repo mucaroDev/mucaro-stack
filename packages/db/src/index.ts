@@ -1,30 +1,32 @@
 /**
- * @workspace/db package exports
- * Main entry point for the database package
+ * Database package exports
+ * Provides database connection and schema
  */
 
-// Connection utilities
+// Export connection utilities
 export {
 	closeSingletonDatabase,
 	createDatabase,
 	type Database,
 	type DatabaseConfig,
+	db,
+	getDefaultDatabase,
 	getSingletonDatabase,
 	healthCheck,
 	validateEnvConfig,
 } from "./connection";
-// Migrations
-export {
-	type MigrationOptions,
-	runMigrations,
-} from "./migrations";
 
-// Operations
-export {
-	createTodoOperations,
-	createUserOperations,
-	TodoOperations,
-	UserOperations,
-} from "./operations";
-// Schema exports
+// Export types (but not the Node.js-specific migration functions)
+export type { MigrationOptions, MigrationStatus } from "./migrations";
+
+// Export all schema
 export * from "./schema";
+
+// Export simple todo operations
+export {
+	createSimpleTodoOperations,
+	type SimpleTodoOperations,
+} from "./simple-todos";
+
+// Export types
+export * from "./types";

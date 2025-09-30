@@ -7,9 +7,9 @@ import {
 	createDatabase,
 	type Database,
 	healthCheck,
-	runMigrations,
 	validateEnvConfig,
 } from "@workspace/db";
+import { runMigrations } from "@workspace/db/migrations";
 
 let db: Database | null = null;
 let dbError: string | null = null;

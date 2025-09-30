@@ -1,35 +1,32 @@
 import { cn } from "@workspace/ui/lib/utils";
-import { forwardRef, type ComponentProps } from "react";
-import { Input, type InputProps } from "./input";
-import { Label, type LabelProps } from "./label";
+import { type ComponentProps, forwardRef } from "react";
+import { Input } from "./input";
+import { Label } from "./label";
 
 export type FormFieldProps = {
 	label: string;
 	error?: string;
 	required?: boolean;
 	className?: string;
-	labelProps?: Omit<LabelProps, "htmlFor" | "required" | "children">;
-	inputProps?: Omit<InputProps, "id">;
+	labelProps?: Omit<ComponentProps<typeof Label>, "htmlFor" | "children">;
+	inputProps?: Omit<ComponentProps<"input">, "id">;
 } & Pick<ComponentProps<"div">, "id">;
 
 const FormField = forwardRef<HTMLInputElement, FormFieldProps>(
-	({ label, error, required, className, labelProps, inputProps, id, ...props }, ref) => {
+	(
+		{ label, error, required, className, labelProps, inputProps, id, ...props },
+		ref
+	) => {
 		const fieldId = id || `field-${label.toLowerCase().replace(/\s+/g, "-")}`;
 
 		return (
 			<div className={cn("space-y-2", className)} {...props}>
-				<Label htmlFor={fieldId} required={required} {...labelProps}>
+				<Label htmlFor={fieldId} {...labelProps}>
 					{label}
+					{required && <span className="text-destructive">*</span>}
 				</Label>
-				<Input
-					ref={ref}
-					id={fieldId}
-					error={!!error}
-					{...inputProps}
-				/>
-				{error && (
-					<p className="text-sm text-destructive">{error}</p>
-				)}
+				<Input id={fieldId} ref={ref} {...inputProps} />
+				{error && <p className="text-destructive text-sm">{error}</p>}
 			</div>
 		);
 	}

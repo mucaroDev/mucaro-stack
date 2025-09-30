@@ -1,9 +1,14 @@
 "use server";
 
-import { insertUserSchema, type User, users } from "@workspace/db/schema";
+import type { User } from "@workspace/db/schema";
+import { user as users } from "@workspace/db/schema";
 import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { getDatabase } from "./db";
+
+// Note: This file contains legacy user CRUD operations.
+// With Better Auth, users should be managed through auth sign-up/sign-in, not manual CRUD.
+// These functions are kept for reference but should not be used in production.
 
 export type ActionResult<T = unknown> = {
 	success: boolean;
@@ -67,22 +72,19 @@ export async function createUser(
 			avatarUrl: formData.get("avatarUrl") as string | null,
 		};
 
-		// Create clean data object
-		const userData: Record<string, string> = {
+		// Note: This is legacy code - Better Auth manages user creation
+		// Users should be created through auth sign-up, not this function
+		const userData = {
+			id: crypto.randomUUID(),
 			email: rawData.email,
+			name: rawData.name?.trim() || "",
+			emailVerified: false,
+			image: rawData.avatarUrl?.trim() || null,
+			createdAt: new Date(),
+			updatedAt: new Date(),
 		};
 
-		if (rawData.name?.trim()) {
-			userData.name = rawData.name.trim();
-		}
-		if (rawData.avatarUrl?.trim()) {
-			userData.avatarUrl = rawData.avatarUrl.trim();
-		}
-
-		// Validate input with Zod
-		const validatedData = insertUserSchema.parse(userData);
-
-		const newUser = await db.insert(users).values(validatedData).returning();
+		const newUser = await db.insert(users).values(userData).returning();
 
 		// Revalidate the page to show updated data
 		revalidatePath("/");
@@ -131,24 +133,17 @@ export async function updateUser(
 			avatarUrl: formData.get("avatarUrl") as string | null,
 		};
 
-		// Create clean data object
-		const userData: Record<string, string> = {
+		// Note: This is legacy code - Better Auth manages user updates
+		const userData: Partial<User> = {
 			email: rawData.email,
+			name: rawData.name?.trim() || "",
+			image: rawData.avatarUrl?.trim() || null,
+			updatedAt: new Date(),
 		};
-
-		if (rawData.name?.trim()) {
-			userData.name = rawData.name.trim();
-		}
-		if (rawData.avatarUrl?.trim()) {
-			userData.avatarUrl = rawData.avatarUrl.trim();
-		}
-
-		// Validate input with Zod (partial update)
-		const validatedData = insertUserSchema.partial().parse(userData);
 
 		const updatedUser = await db
 			.update(users)
-			.set(validatedData)
+			.set(userData)
 			.where(eq(users.id, id))
 			.returning();
 

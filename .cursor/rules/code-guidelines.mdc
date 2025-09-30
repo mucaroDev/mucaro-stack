@@ -1541,6 +1541,117 @@ function processData(data: UserData): ProcessedData {
 }
 ```
 
+## 🚨 CRITICAL: shadcn/ui Design System & Color Guidelines
+
+### **NEVER use random colors - ONLY semantic classes**
+
+This project strictly follows shadcn/ui design system conventions. **ALL colors must use semantic CSS variables and their corresponding Tailwind classes.**
+
+#### Semantic Color System
+
+**✅ ALWAYS use these semantic color classes:**
+
+```typescript
+// Background colors
+"bg-background"           // Main background
+"bg-card"                // Card backgrounds  
+"bg-primary"             // Primary actions
+"bg-secondary"           // Secondary actions
+"bg-muted"               // Muted backgrounds
+"bg-accent"              // Accent backgrounds
+"bg-destructive"         // Destructive actions (errors, delete)
+
+// Text colors
+"text-foreground"        // Primary text
+"text-muted-foreground"  // Secondary/muted text
+"text-primary"           // Primary action text
+"text-destructive"       // Error/destructive text
+
+// Border colors
+"border-border"          // Standard borders
+"border-input"           // Input borders
+"border-primary"         // Primary borders
+"border-destructive"     // Error borders
+
+// With opacity for subtle variations
+"bg-primary/10"          // 10% opacity
+"bg-destructive/5"       // 5% opacity
+"border-destructive/20"  // 20% opacity border
+```
+
+**❌ NEVER use arbitrary color classes:**
+
+```typescript
+// ❌ WRONG: Random colors
+"bg-blue-600"            // Use bg-primary instead
+"bg-red-500"             // Use bg-destructive instead  
+"bg-gray-100"            // Use bg-muted instead
+"text-gray-500"          // Use text-muted-foreground instead
+"border-red-400"         // Use border-destructive instead
+```
+
+#### State-Based Color Usage
+
+**✅ CORRECT semantic color patterns:**
+
+```typescript
+// Success states
+"text-green-600 dark:text-green-400"
+"bg-green-500/10"
+"border-green-500/20"
+
+// Warning states  
+"text-yellow-600 dark:text-yellow-400"
+"bg-yellow-500/10"
+"border-yellow-500/20"
+
+// Error states (prefer destructive)
+"text-destructive"
+"bg-destructive/10"
+"border-destructive/20"
+
+// Priority indicators
+export const getPriorityColor = (priority: string) => {
+  switch (priority) {
+    case "high":
+      return "bg-destructive/10 text-destructive border-destructive/20";
+    case "medium":
+      return "bg-yellow-500/10 text-yellow-700 border-yellow-500/20 dark:text-yellow-400";
+    case "low":
+      return "bg-green-500/10 text-green-700 border-green-500/20 dark:text-green-400";
+    default:
+      return "bg-muted text-muted-foreground border-border";
+  }
+};
+```
+
+#### Common Color Replacements
+
+| ❌ Old Random Color | ✅ New Semantic Color |
+|-------------------|---------------------|
+| `bg-gray-50` | `bg-background` or `bg-muted` |
+| `bg-white` | `bg-background` or `bg-card` |
+| `text-gray-900` | `text-foreground` |
+| `text-gray-600` | `text-muted-foreground` |
+| `border-gray-300` | `border-border` |
+| `bg-blue-600` | `bg-primary` |
+| `text-red-600` | `text-destructive` |
+| `bg-red-50` | `bg-destructive/5` |
+
+### **Enforcement Rules**
+
+**🚨 Code Review Checklist:**
+- [ ] **NO arbitrary color classes** (bg-blue-600, text-red-500, etc.)
+- [ ] **ALL colors use semantic classes** (bg-primary, text-destructive, etc.)
+- [ ] **State colors use semantic meanings** (success, warning, error)
+- [ ] **Dark mode handled automatically** or explicitly for semantic colors only
+- [ ] **Hover states use semantic variations** (/90, /80, etc.)
+
+**🚨 Linting Pattern to Catch:**
+```regex
+/(bg-|text-|border-)(red|blue|green|yellow|orange|purple|pink|indigo|gray|slate|zinc|neutral|stone)-\d+/
+```
+
 ## Summary Checklist
 
 Before submitting code, ensure:
@@ -1553,6 +1664,13 @@ Before submitting code, ensure:
 - [ ] **Used component variants** instead of custom styling (variant="primary", size="lg", etc.)
 - [ ] **Checked @workspace/ui components first** before creating any UI element
 
+**shadcn/ui Design System (CRITICAL)**:
+- [ ] **NO random colors** - Only semantic classes (bg-primary, text-destructive, etc.)
+- [ ] **ALL colors follow shadcn/ui conventions** - Use design system variables
+- [ ] **State colors are semantic** - green for success, yellow for warning, destructive for errors
+- [ ] **Dark mode supported** - Semantic classes handle automatically
+- [ ] **Opacity modifiers used** - /5, /10, /20 for subtle variations
+
 **Package Usage**:
 - [ ] Uses appropriate workspace packages (@workspace/auth, @workspace/db, @workspace/ui)
 - [ ] Uses Clerk for authentication via @workspace/auth
@@ -1563,6 +1681,7 @@ Before submitting code, ensure:
 - [ ] Follows Next.js App Router conventions
 - [ ] Uses Tailwind CSS classes ONLY for layout (no CSS-in-JS, no traditional CSS)
 - [ ] **No custom styled components** - only @workspace/ui components
+- [ ] **NEVER uses random colors** - only semantic shadcn/ui classes
 - [ ] Has proper TypeScript types
 - [ ] Includes error handling
 - [ ] Follows security best practices
@@ -1572,8 +1691,12 @@ Before submitting code, ensure:
 
 **REMEMBER**: 
 1. **@workspace/ui components are MANDATORY** - Never create custom UI elements
-2. **Check @workspace/ui first** - It has Button, Input, Card, Dialog, Alert, FormField, Checkbox, Label, and more
-3. **Use variants and props** - Don't override with custom Tailwind classes
-4. **Layout vs Components** - Use Tailwind for layout containers, @workspace/ui for interactive elements
+2. **NEVER use random colors** - Always use semantic classes (bg-primary, text-destructive, etc.)
+3. **Check @workspace/ui first** - It has Button, Input, Card, Dialog, Alert, FormField, Checkbox, Label, and more
+4. **Think semantically** - What does this color represent? (primary, destructive, success, warning)
+5. **Use variants and props** - Don't override with custom Tailwind classes
+6. **Layout vs Components** - Use Tailwind for layout containers, @workspace/ui for interactive elements
 
 Always prefer using the workspace packages over implementing functionality from scratch. They provide tested, consistent APIs that integrate well with the overall architecture.
+
+**Color Philosophy**: Always ask "What semantic meaning does this color have?" instead of "What color looks good here?"

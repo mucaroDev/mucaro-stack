@@ -1,69 +1,31 @@
+"use client";
+
+import * as CheckboxPrimitive from "@radix-ui/react-checkbox";
 import { cn } from "@workspace/ui/lib/utils";
-import { Check } from "lucide-react";
-import { forwardRef, type ComponentProps, useState, useEffect } from "react";
+import { CheckIcon } from "lucide-react";
+import type * as React from "react";
 
-export type CheckboxProps = Omit<ComponentProps<"input">, "type"> & {
-	label?: string;
-	error?: boolean;
-};
-
-const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
-	({ className, label, error, id, checked, onChange, ...props }, ref) => {
-		const [isChecked, setIsChecked] = useState(checked || false);
-		const checkboxId = id || `checkbox-${Math.random().toString(36).substr(2, 9)}`;
-
-		useEffect(() => {
-			setIsChecked(checked || false);
-		}, [checked]);
-
-		const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-			setIsChecked(e.target.checked);
-			onChange?.(e);
-		};
-
-		return (
-			<div className="flex items-center space-x-2">
-				<div className="relative">
-					<input
-						type="checkbox"
-						ref={ref}
-						id={checkboxId}
-						checked={isChecked}
-						onChange={handleChange}
-						className="sr-only peer"
-						{...props}
-					/>
-					<div
-						className={cn(
-							"flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-primary ring-offset-background transition-colors peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2 peer-disabled:cursor-not-allowed peer-disabled:opacity-50",
-							isChecked && "bg-primary text-primary-foreground",
-							error && "border-destructive peer-focus-visible:ring-destructive",
-							className
-						)}
-					>
-						<Check
-							className={cn(
-								"h-3 w-3 transition-opacity",
-								isChecked ? "opacity-100" : "opacity-0"
-							)}
-						/>
-					</div>
-				</div>
-				{label && (
-					<label
-						htmlFor={checkboxId}
-						className={cn(
-							"text-sm font-medium leading-none cursor-pointer peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-							error && "text-destructive"
-						)}
-					>
-						{label}
-					</label>
-				)}
-			</div>
-		);
-	}
-);
-Checkbox.displayName = "Checkbox";
+function Checkbox({
+	className,
+	...props
+}: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+	return (
+		<CheckboxPrimitive.Root
+			className={cn(
+				"peer size-4 shrink-0 rounded-[4px] border border-input shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:bg-input/30 dark:data-[state=checked]:bg-primary dark:aria-invalid:ring-destructive/40",
+				className
+			)}
+			data-slot="checkbox"
+			{...props}
+		>
+			<CheckboxPrimitive.Indicator
+				className="flex items-center justify-center text-current transition-none"
+				data-slot="checkbox-indicator"
+			>
+				<CheckIcon className="size-3.5" />
+			</CheckboxPrimitive.Indicator>
+		</CheckboxPrimitive.Root>
+	);
+}
 
 export { Checkbox };

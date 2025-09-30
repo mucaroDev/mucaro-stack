@@ -1,14 +1,22 @@
-import { Outfit } from "next/font/google";
+import { IBM_Plex_Mono, Lora, Plus_Jakarta_Sans } from "next/font/google";
 
 import "@workspace/ui/globals.css";
+import NavBar from "@/components/nav-bar";
 import { Providers } from "@/components/providers";
 
-const fontSans = Outfit({
+const fontSans = Plus_Jakarta_Sans({
 	subsets: ["latin"],
 	variable: "--font-sans",
 });
 
-const fontMono = Outfit({
+const fontSerif = Lora({
+	weight: ["400", "500", "600", "700"],
+	subsets: ["latin"],
+	variable: "--font-serif",
+});
+
+const fontMono = IBM_Plex_Mono({
+	weight: ["400", "500", "600", "700"],
 	subsets: ["latin"],
 	variable: "--font-mono",
 });
@@ -21,9 +29,12 @@ export default function RootLayout({
 	return (
 		<html lang="en" suppressHydrationWarning>
 			<body
-				className={`${fontSans.variable} ${fontMono.variable} font-sans antialiased`}
+				className={`${fontSans.variable} ${fontMono.variable} ${fontSerif.variable} font-sans antialiased`}
 			>
-				<Providers>{children}</Providers>
+				<Providers>
+					<NavBar />
+					<main className="relative">{children}</main>
+				</Providers>
 			</body>
 		</html>
 	);

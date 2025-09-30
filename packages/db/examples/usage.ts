@@ -46,7 +46,9 @@ async function basicExample() {
 	console.log("All users:", allUsers);
 
 	// Update a user using operations
-	const updatedUser = await userOps.updateUser(newUser.id, { name: "John Smith" });
+	const updatedUser = await userOps.updateUser(newUser.id, {
+		name: "John Smith",
+	});
 	console.log("Updated user:", updatedUser);
 
 	// Get user by email

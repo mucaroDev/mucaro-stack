@@ -1,25 +1,22 @@
 import { relations } from "drizzle-orm";
-import { boolean, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { boolean, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema, createSelectSchema } from "drizzle-zod";
 import type { z } from "zod";
-import { users } from "./users";
+import { user } from "./auth";
 
 /**
- * Todos table schema
- * Connected to users for personal todo management
+ * Simplified todos table schema
+ * Just title, completed status, and basic metadata
  */
 export const todos = pgTable("todos", {
-	id: uuid("id").primaryKey().defaultRandom(),
-	userId: uuid("user_id")
+	id: text("id")
+		.primaryKey()
+		.$defaultFn(() => crypto.randomUUID()),
+	userId: text("user_id")
 		.notNull()
-		.references(() => users.id, { onDelete: "cascade" }),
+		.references(() => user.id, { onDelete: "cascade" }),
 	title: text("title").notNull(),
-	description: text("description"),
 	completed: boolean("completed").default(false).notNull(),
-	priority: text("priority", { enum: ["low", "medium", "high"] })
-		.default("medium")
-		.notNull(),
-	dueDate: timestamp("due_date"),
 	createdAt: timestamp("created_at").defaultNow().notNull(),
 	updatedAt: timestamp("updated_at")
 		.defaultNow()
@@ -31,14 +28,10 @@ export const todos = pgTable("todos", {
  * Relations
  */
 export const todosRelations = relations(todos, ({ one }) => ({
-	user: one(users, {
+	user: one(user, {
 		fields: [todos.userId],
-		references: [users.id],
+		references: [user.id],
 	}),
-}));
-
-export const usersRelations = relations(users, ({ many }) => ({
-	todos: many(todos),
 }));
 
 /**
@@ -46,14 +39,9 @@ export const usersRelations = relations(users, ({ many }) => ({
  */
 const MIN_TITLE_LENGTH = 1;
 const MAX_TITLE_LENGTH = 255;
-const MAX_DESCRIPTION_LENGTH = 1000;
 
 export const insertTodoSchema = createInsertSchema(todos, {
 	title: (schema) => schema.title.min(MIN_TITLE_LENGTH).max(MAX_TITLE_LENGTH),
-	description: (schema) =>
-		schema.description.max(MAX_DESCRIPTION_LENGTH).optional(),
-	priority: (schema) => schema.priority.optional(),
-	dueDate: (schema) => schema.dueDate.optional(),
 });
 
 export const selectTodoSchema = createSelectSchema(todos);
@@ -78,7 +66,7 @@ export type UpdateTodo = z.infer<typeof updateTodoSchema>;
 export type TodoWithUser = Todo & {
 	user: {
 		id: string;
-		name: string | null;
+		name: string;
 		email: string;
 	};
 };

@@ -31,7 +31,6 @@
     ".": "./src/index.ts",
     "./connection": "./src/connection.ts",
     "./schema": "./src/schema/index.ts",
-    "./operations": "./src/operations.ts",
     "./migrations": "./src/migrations.ts",
     "./types": "./src/types.ts"
   }

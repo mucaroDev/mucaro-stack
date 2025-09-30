@@ -1,12 +1,4 @@
-import type { NextRequest } from 'next/server';
+import { auth } from "@workspace/auth/server";
+import { toNextJsHandler } from "better-auth/next-js";
 
-// Simple auth handler for Clerk webhooks
-export function POST(_request: NextRequest) {
-  // For now, just return success to handle the webhook
-  // This can be expanded later to sync user data
-  return new Response('OK', { status: 200 });
-}
-
-export function GET() {
-  return new Response('Auth endpoint', { status: 200 });
-}
+export const { POST, GET } = toNextJsHandler(auth);

@@ -1,42 +1,23 @@
+"use client";
+
+import * as LabelPrimitive from "@radix-ui/react-label";
 import { cn } from "@workspace/ui/lib/utils";
-import { cva, type VariantProps } from "class-variance-authority";
-import { forwardRef, type ComponentProps } from "react";
+import type * as React from "react";
 
-const labelVariants = cva(
-	"text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-	{
-		variants: {
-			variant: {
-				default: "text-foreground",
-				error: "text-destructive",
-				muted: "text-muted-foreground",
-			},
-		},
-		defaultVariants: {
-			variant: "default",
-		},
-	}
-);
+function Label({
+	className,
+	...props
+}: React.ComponentProps<typeof LabelPrimitive.Root>) {
+	return (
+		<LabelPrimitive.Root
+			className={cn(
+				"flex select-none items-center gap-2 font-medium text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-50 group-data-[disabled=true]:pointer-events-none group-data-[disabled=true]:opacity-50",
+				className
+			)}
+			data-slot="label"
+			{...props}
+		/>
+	);
+}
 
-export type LabelProps = ComponentProps<"label"> &
-	VariantProps<typeof labelVariants> & {
-		required?: boolean;
-	};
-
-const Label = forwardRef<HTMLLabelElement, LabelProps>(
-	({ className, variant, required, children, ...props }, ref) => {
-		return (
-			<label
-				ref={ref}
-				className={cn(labelVariants({ variant, className }))}
-				{...props}
-			>
-				{children}
-				{required && <span className="ml-1 text-destructive">*</span>}
-			</label>
-		);
-	}
-);
-Label.displayName = "Label";
-
-export { Label, labelVariants };
+export { Label };
