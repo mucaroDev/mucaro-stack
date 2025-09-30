@@ -15,7 +15,6 @@ export async function GET() {
 			count: allUsers.length,
 		});
 	} catch (error) {
-		console.error("Failed to fetch users:", error);
 		return NextResponse.json(
 			{
 				success: false,

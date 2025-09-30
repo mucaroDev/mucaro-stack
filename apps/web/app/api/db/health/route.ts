@@ -27,10 +27,6 @@ export async function GET() {
 			timestamp: new Date().toISOString(),
 		});
 	} catch (error) {
-		// Log error for debugging
-		if (typeof window === "undefined") {
-			console.error("Health check failed:", error);
-		}
 		return NextResponse.json(
 			{
 				success: false,
