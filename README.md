@@ -1,171 +1,173 @@
 # Mucaro Stack
 
-A modern full-stack monorepo with Next.js, Better Auth, Drizzle ORM, PostgreSQL, and shadcn/ui.
+A modern full-stack monorepo with Next.js 15, Better Auth, Drizzle ORM, PostgreSQL, and shadcn/ui components.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
+Choose one setup method:
+
+**Option 1: Docker (Recommended)**
+- [OrbStack](https://orbstack.dev/) (recommended for macOS) or [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+
+**Option 2: Local Development**
 - Node.js 20+
-- PostgreSQL (running locally or accessible via connection string)
+- PostgreSQL database
 - pnpm 10+
 
-### First Time Setup
+### Setup with Docker
 
-1. **Clone the repository**
-   ```bash
-   git clone <your-repo-url>
-   cd mucaro-stack
-   ```
+```bash
+# 1. Copy environment file
+cp .env.example .env
 
-2. **Set up environment variables**
-   
-   Create a `.env.local` file at the root with your database configuration:
-   ```env
-   # Option 1: Connection string (recommended)
-   DATABASE_URL="postgresql://user:password@localhost:5432/your_db_name"
-   
-   # Option 2: Individual parameters
-   DB_HOST="localhost"
-   DB_PORT="5432"
-   DB_USER="your_username"
-   DB_PASSWORD="your_password"
-   DB_NAME="your_db_name"
-   DB_SSL="false"
-   
-   # Better Auth
-   BETTER_AUTH_SECRET="your-secret-key"  # Generate with: openssl rand -base64 32
-   BETTER_AUTH_URL="http://localhost:3000"
-   ```
+# 2. Start services (Next.js + PostgreSQL)
+docker compose up -d
 
-3. **Run the setup script**
-   ```bash
-   pnpm setup
-   ```
-   
-   This will:
-   - Install all dependencies
-   - Create the database (or ask for confirmation if it exists)
-   - Run all migrations
-   - Start the dev server
+# 3. Open the app
+open http://localhost:3000
+```
 
-That's it! 🎉
+**Makefile shortcuts:**
+```bash
+make up          # Start services
+make down        # Stop services
+make logs        # View logs
+make shell       # Web container shell
+make db-shell    # PostgreSQL shell
+```
 
-## 📦 Project Structure
+### Setup Locally
+
+```bash
+# 1. Install dependencies
+pnpm install
+
+# 2. Configure environment
+cp .env.example .env.local
+# Edit .env.local with your database credentials
+
+# 3. Setup database and start dev server
+pnpm setup
+```
+
+That's it! The app is running at http://localhost:3000 🎉
+
+## 📁 Project Structure
 
 ```
 mucaro-stack/
 ├── apps/
 │   └── web/              # Next.js application
 ├── packages/
-│   ├── auth/             # Better Auth integration
-│   ├── db/               # Database schema & operations
-│   ├── ui/               # shadcn/ui components
-│   └── typescript-config/ # Shared TypeScript configs
+│   ├── auth/             # @workspace/auth - Better Auth integration
+│   ├── db/               # @workspace/db - Database schema & Drizzle ORM
+│   ├── ui/               # @workspace/ui - shadcn/ui components
+│   └── typescript-config/ # Shared TypeScript configurations
 ```
 
-## 🛠️ Development Scripts
+## 🛠️ Development Commands
 
-### Root Level Commands
+### Common Tasks
 
 ```bash
-# Full project setup (first time)
-pnpm setup
-
-# Start all apps in dev mode
-pnpm dev
-
-# Build all packages and apps
-pnpm build
-
-# Lint all code
-pnpm lint
-
-# Format all code
-pnpm format
+pnpm dev              # Start dev server (all apps)
+pnpm build            # Build all packages and apps
+pnpm lint             # Lint all code with Biome
+pnpm format           # Format all code with Biome
 ```
 
-### Database Commands
+### Database
 
 ```bash
-# Setup/reset database (with confirmation)
-pnpm db:setup
+pnpm db:setup         # Create database with migrations
+pnpm db:migrate       # Run pending migrations
+pnpm db:studio        # Open Drizzle Studio (visual editor)
 
-# Run migrations only
-pnpm db:migrate
-
-# Open Drizzle Studio (visual DB editor)
-pnpm db:studio
-```
-
-### Package-Specific Commands
-
-```bash
-# Work on specific package
-pnpm --filter @workspace/db dev
-pnpm --filter web dev
-
-# Generate database migrations after schema changes
+# Generate migrations after schema changes
 pnpm --filter @workspace/db generate
 ```
 
-## 🏗️ Tech Stack
+### Docker
 
-- **Frontend**: Next.js 15+ with App Router, React 19, Tailwind CSS 4
-- **Authentication**: Better Auth with OAuth, SSO, and session management
-- **Database**: PostgreSQL with Drizzle ORM
-- **Styling**: Tailwind CSS 4 + shadcn/ui components
-- **Tooling**: Biome (formatting/linting), TypeScript, pnpm workspaces
-- **Monorepo**: Turborepo
+```bash
+docker compose up -d  # Start in background
+docker compose down   # Stop all services
+docker compose logs -f web  # Follow web logs
+docker compose exec web sh  # Shell in web container
 
-## 📚 Documentation
+# Or use Makefile
+make up
+make down
+make logs
+```
 
-- [Database Package (@workspace/db)](./packages/db/README.md)
-- [Auth Package (@workspace/auth)](./packages/auth/README.md)
-- [Development Guidelines](./STYLING_GUIDELINES.md)
+## 💡 Using Workspace Packages
+
+Import components and utilities from workspace packages:
+
+```tsx
+// UI Components
+import { Button, Card, Input } from "@workspace/ui/components";
+
+// Authentication
+import { useSession } from "@workspace/auth/client";
+import { auth } from "@workspace/auth/server";
+
+// Database
+import { db, users, todos } from "@workspace/db";
+```
 
 ## 🎨 Adding UI Components
 
-To add shadcn/ui components to your app:
+Add shadcn/ui components to the UI package:
 
 ```bash
 pnpm dlx shadcn@latest add button -c apps/web
 ```
 
-This places components in `packages/ui/src/components/`.
-
-## 💡 Using Components
-
-Import components from the `@workspace` packages:
-
-```tsx
-import { Button, Card } from "@workspace/ui/components";
-import { useAuth } from "@workspace/auth/client";
-import { db, users } from "@workspace/db";
-```
+Components are automatically added to `packages/ui/src/components/`.
 
 ## 🔒 Environment Variables
 
-Each app can have its own `.env.local` file, or use the root `.env.local` for shared configuration.
+Create `.env` (Docker) or `.env.local` (local development):
 
-**Required Variables:**
-- `DATABASE_URL` or individual `DB_*` variables
-- `BETTER_AUTH_SECRET` - Auth encryption key
-- `BETTER_AUTH_URL` - Your app URL
+```env
+# Database
+DATABASE_URL=postgresql://user:password@localhost:5432/dbname
+
+# Better Auth
+BETTER_AUTH_SECRET=<generate with: openssl rand -base64 32>
+BETTER_AUTH_URL=http://localhost:3000
+
+# Optional: OAuth providers
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+## 🏗️ Tech Stack
+
+- **Frontend**: Next.js 15 (App Router), React 19, Tailwind CSS 4
+- **Auth**: Better Auth (email, OAuth, passkeys, 2FA)
+- **Database**: PostgreSQL + Drizzle ORM
+- **UI**: shadcn/ui components
+- **Monorepo**: Turborepo + pnpm workspaces
+- **Code Quality**: Biome (linting & formatting), TypeScript
+- **Containers**: Docker Compose with hot-reload
+
+## 📚 Documentation
+
+- [Auth Package Documentation](./packages/auth/README.md) - Better Auth setup and usage
+- [Database Package Documentation](./packages/db/README.md) - Drizzle ORM, schema, and migrations
 
 ## 📖 Learn More
 
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Drizzle ORM Documentation](https://orm.drizzle.team)
 - [Better Auth Documentation](https://www.better-auth.com)
+- [Drizzle ORM Documentation](https://orm.drizzle.team)
 - [shadcn/ui Documentation](https://ui.shadcn.com)
-
-## 🤝 Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Run `pnpm lint` and `pnpm format`
-4. Submit a pull request
+- [Turborepo Documentation](https://turbo.build/repo/docs)
 
 ## 📝 License
 

@@ -42,7 +42,12 @@
     "statusBarItem.hoverBackground": "#61afb0",
     "statusBarItem.remoteBackground": "#83c0c1",
     "statusBarItem.remoteForeground": "#15202b",
-    "sideBar.border": "#a5d1d2"
+    "sideBar.border": "#a5d1d2",
+    "editorGroup.border": "#a5d1d2",
+    "panel.border": "#a5d1d2",
+    "statusBar.debuggingBackground": "#c18483",
+    "statusBar.debuggingBorder": "#c18483",
+    "statusBar.debuggingForeground": "#15202b"
   },
   "peacock.color": "#83c0c1",
   "cSpell.words": [
